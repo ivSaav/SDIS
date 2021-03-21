@@ -1,12 +1,9 @@
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.rmi.AlreadyBoundException;
-import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
@@ -15,7 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 
-public class Peer {
+public class Peer implements ClientPeerProtocol {
 
 
     private int id;
@@ -26,11 +23,8 @@ public class Peer {
         this.files = new HashMap<String, String>();
     }
 
-
-
-
-    public String backup(String path, int repDegree) throws IOException {
-
+    @Override
+    public String backup(String path, int repDegree) {
         try {
             BasicFileAttributes attribs = Files.readAttributes(Path.of(path), BasicFileAttributes.class); // get file metadata
 
@@ -40,7 +34,7 @@ public class Peer {
             final byte[] hashbytes = digest.digest(originalString.getBytes(StandardCharsets.UTF_8));
             String fileHash = bytesToHex(hashbytes);
 
-//            this.files.put(fileHash, )
+            System.out.println(fileHash);
 
         }
         catch (IOException | NoSuchAlgorithmException e) {
@@ -48,39 +42,28 @@ public class Peer {
             System.exit(1);
         }
 
-
-
-        // TODO files table with key as hash
-//        if (table.containsKey(dns)) {
-//            System.out.println("ERROR a table entry already exists");
-//            return "ERROR register already exists";
-//        }
-//        table.put(dns, ipAddr);
         System.out.println("backed: " + path + ":" + repDegree);
         return "success";
     }
 
     public static void main(String[] args) throws IOException{
-            Peer p = new Peer(1);
-//        try {
-//            Peer obj = new Peer();
-//            RMI stub = (RMI) UnicastRemoteObject.exportObject(obj, 8002);
-//
-//            //Bind the remote object's stub in the registry
-//            Registry registry = LocateRegistry.getRegistry(8001);
-//            registry.bind("RMI", stub);
-//
-//            System.out.println("Server ready");
-//        } catch (AlreadyBoundException e) {
-//            e.printStackTrace();
-//        }
+        Peer peer = new Peer(1);
+        try {
+            ClientPeerProtocol stub = (ClientPeerProtocol) UnicastRemoteObject.exportObject(peer, 8002);
 
-//        if (args.length < 1) {
-//            System.out.println("usage: Peer <remote_object_name>");
-//            throw new IOException("Invalid usage");
-//        }
+            //Bind the remote object's stub in the registry
+            Registry registry = LocateRegistry.getRegistry(8001);
+            registry.bind("client_peer_ap", stub);
 
-        p.backup(args[0], 2);
+            System.out.println("Peer " + peer.id + " ready");
+        } catch (AlreadyBoundException e) {
+            e.printStackTrace();
+        }
+
+        if (args.length < 1) {
+            System.out.println("usage: Peer <remote_object_name>");
+            throw new IOException("Invalid usage");
+        }
     }
 
     //Retrieved from: https://www.baeldung.com/sha-256-hashing-java

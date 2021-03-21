@@ -1,19 +1,15 @@
 public class ArgsParser {
 
-    private Operation oper;
-    private
+    private static Definitions.Operation oper;
 
     public static void validateArguments(String[] args) {
-
-
-
         if (args.length < 3) {
             System.out.println("usage: TestApp <peer_app> <operation> <opend_1> <opend_2>");
             System.exit(1);
         }
 
         try {
-            this.oper = Operation.valueOf(args[1]);
+            oper = Definitions.Operation.valueOf(args[1]);
         }
         catch (IllegalArgumentException e) {
             System.out.println(e.toString());
@@ -21,12 +17,11 @@ public class ArgsParser {
         }
 
 
-        switch (this.oper) {
-            case Operation.BACKUP:
-                if (args.length != 5) {
-                    System.out.println("usage: TestApp <peer_app> BACKUP <filename> <replication_deg>");
-                    System.exit(1)
-                }
+        if (oper == Definitions.Operation.BACKUP) {
+            if (args.length != 5) {
+                System.out.println("usage: TestApp <peer_app> BACKUP <filename> <replication_deg>");
+                System.exit(1);
+            }
         }
 
 //        String message = args[0];

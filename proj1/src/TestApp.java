@@ -1,6 +1,5 @@
-import java.io.IOException;
-import java.net.*;
 import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
@@ -12,14 +11,18 @@ public class TestApp {
 
 
 //        ArgsParser.validateArguments(args);
+        String peer_ap = args[0];
+        String filename = args[2];
+        int repDegree = Integer.parseInt(args[3]);
+        Definitions.Operation operation = Definitions.Operation.valueOf(args[1]);
 
         try {
             Registry registry = LocateRegistry.getRegistry(8001);
-            RMI stub = (RMI) registry.lookup("RMI");
+            ClientPeerProtocol stub = (ClientPeerProtocol) registry.lookup(peer_ap);
 
             String response;
-            if (args[2].equals("BACKUP")) {
-                response = stub.register(args[3], args[4]);
+            if (operation == Definitions.Operation.BACKUP) {
+                response = stub.backup(filename, repDegree);
             }
             else {
                 System.out.println("ERROR invalid operation:" + args[2]);
@@ -27,7 +30,7 @@ public class TestApp {
             }
             System.out.println("response: " + response);
 
-        } catch (NotBoundException e) {
+        } catch (NotBoundException | RemoteException e) {
             e.printStackTrace();
         }
 
