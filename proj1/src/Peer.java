@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.rmi.AlreadyBoundException;
 import java.rmi.registry.LocateRegistry;
@@ -9,7 +10,8 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 
 public class Peer implements ClientPeerProtocol {
@@ -26,7 +28,8 @@ public class Peer implements ClientPeerProtocol {
     @Override
     public String backup(String path, int repDegree) {
         try {
-            BasicFileAttributes attribs = Files.readAttributes(Path.of(path), BasicFileAttributes.class); // get file metadata
+            Path file = Paths.get(path);
+            BasicFileAttributes attribs = Files.readAttributes(file, BasicFileAttributes.class); // get file metadata
 
             String originalString = path + attribs.lastModifiedTime() + attribs.creationTime();
 
@@ -47,23 +50,26 @@ public class Peer implements ClientPeerProtocol {
     }
 
     public static void main(String[] args) throws IOException{
+
+        if (args.length < 1) {
+            System.out.println("usage: Peer <remote_object_name>");
+            throw new IOException("Invalid usage");
+        }
+
         Peer peer = new Peer(1);
         try {
-            ClientPeerProtocol stub = (ClientPeerProtocol) UnicastRemoteObject.exportObject(peer, 8002);
+            ClientPeerProtocol stub = (ClientPeerProtocol) UnicastRemoteObject.exportObject(peer,0);
 
             //Bind the remote object's stub in the registry
-            Registry registry = LocateRegistry.getRegistry(8001);
-            registry.bind("client_peer_ap", stub);
+            Registry registry = LocateRegistry.getRegistry();
+            registry.bind(args[0], stub); //register peer object with the name in args[0]
 
             System.out.println("Peer " + peer.id + " ready");
         } catch (AlreadyBoundException e) {
             e.printStackTrace();
         }
 
-        if (args.length < 1) {
-            System.out.println("usage: Peer <remote_object_name>");
-            throw new IOException("Invalid usage");
-        }
+
     }
 
     //Retrieved from: https://www.baeldung.com/sha-256-hashing-java

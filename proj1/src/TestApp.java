@@ -17,7 +17,7 @@ public class TestApp {
         Definitions.Operation operation = Definitions.Operation.valueOf(args[1]);
 
         try {
-            Registry registry = LocateRegistry.getRegistry(8001);
+            Registry registry = LocateRegistry.getRegistry();
             ClientPeerProtocol stub = (ClientPeerProtocol) registry.lookup(peer_ap);
 
             String response;
@@ -33,7 +33,5 @@ public class TestApp {
         } catch (NotBoundException | RemoteException e) {
             e.printStackTrace();
         }
-
-
     }
 }

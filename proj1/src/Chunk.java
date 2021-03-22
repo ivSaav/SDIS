@@ -6,9 +6,9 @@ public class Chunk {
     private int desiredRepDegree;
     private int perceivedRepDegree;
 
-    public Chunk(String fileHash, int chunkNo, int size, int desiredRepDegree, int perceivedRepDegree) {
-        this.id = id;
-        this.size = size;
-        this.repDegree = repDegree;
-    }
+//    public Chunk(String fileHash, int chunkNo, int size, int desiredRepDegree, int perceivedRepDegree) {
+//        this.id = id;
+//        this.size = size;
+//        this.repDegree = repDegree;
+//    }
 }
