@@ -1,3 +1,6 @@
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -56,33 +59,60 @@ public class Peer implements ClientPeerProtocol {
             throw new IOException("Invalid usage");
         }
 
+        String peer_ap = args[0];
+
         Peer peer = new Peer(1);
+        Registry registry = LocateRegistry.getRegistry();
         try {
             ClientPeerProtocol stub = (ClientPeerProtocol) UnicastRemoteObject.exportObject(peer,0);
 
             //Bind the remote object's stub in the registry
-            Registry registry = LocateRegistry.getRegistry();
-            registry.bind(args[0], stub); //register peer object with the name in args[0]
-
-            System.out.println("Peer " + peer.id + " ready");
+            registry.bind(peer_ap, stub); //register peer object with the name in args[0]
         } catch (AlreadyBoundException e) {
-            e.printStackTrace();
+            System.out.println("Object already bound! Rebinding...");
+            registry.rebind(peer_ap, peer);
         }
-
-
+        System.out.println("Peer " + peer.id + " ready");
     }
 
     //Retrieved from: https://www.baeldung.com/sha-256-hashing-java
     private static String bytesToHex(byte[] hash) {
         StringBuilder hexString = new StringBuilder(2 * hash.length);
-        for (int i = 0; i < hash.length; i++) {
-            String hex = Integer.toHexString(0xff & hash[i]);
-            if(hex.length() == 1) {
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
                 hexString.append('0');
             }
             hexString.append(hex);
         }
         return hexString.toString();
+    }
+
+    private void splitFileChunks(String path) {
+        try {
+
+            File file = new File(path);
+            int num_chunks = (int) Math.ceil( (double) file.length() / (double) Definitions.CHUNK_SIZE);
+
+            byte[] chunk_bytes = new byte[Definitions.CHUNK_SIZE];
+            FileInputStream fstream = new FileInputStream(file);
+
+            for (int i = 0; i < num_chunks; i++) {
+                int offset = i*num_chunks;
+                int num_read = fstream.read(chunk_bytes, offset, offset + Definitions.CHUNK_SIZE);
+                System.out.println(num_read);
+            }
+
+            fstream.close();
+        }
+        catch (FileNotFoundException e) {
+            e.printStackTrace();
+            System.exit(1);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
     }
 
 }
