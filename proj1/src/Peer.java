@@ -2,6 +2,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,13 +21,38 @@ import java.util.Map;
 
 public class Peer implements ClientPeerProtocol {
 
-
-    private int id;
+    private final int id;
+    private final String version;
     private Map<String, String> files;
+    private InetAddress MC_addr;
+    private int MC_port;
+    private InetAddress MDB_addr;
+    private int MDB_port;
+    private InetAddress MDR_addr;
+    private int MDR_port;
 
-    public Peer(int id) {
+    public Peer(String version, int id, String MC, String MDB, String MDR) {
         this.id = id;
+        this.version = version;
         this.files = new HashMap<String, String>();
+
+        String[] vals = MC.split(":"); //MC
+        try {
+            this.MC_addr = InetAddress.getByName(vals[0]);
+            this.MC_port = Integer.parseInt(vals[1]);
+
+            vals = MDB.split(":");
+            this.MDB_addr = InetAddress.getByName(vals[0]);
+            this.MDB_port = Integer.parseInt(vals[1]);
+
+            vals = MDR.split(":");
+            this.MDR_addr = InetAddress.getByName(vals[0]);
+            this.MDR_port = Integer.parseInt(vals[1]);
+        }
+        catch (UnknownHostException e) {
+            System.out.println("Invalid Hostname " + vals[0]);
+            System.exit(1);
+        }
     }
 
     @Override
@@ -59,18 +86,22 @@ public class Peer implements ClientPeerProtocol {
             throw new IOException("Invalid usage");
         }
 
-        String peer_ap = args[0];
+        String version = args[0];
+        int id = Integer.parseInt(args[1]);
+        String service_ap = args[2];
 
-        Peer peer = new Peer(1);
+        String MC = args[3], MDB = args[4], MDR = args[5];
+
+        Peer peer = new Peer(version, id, MC, MDB, MDR);
         Registry registry = LocateRegistry.getRegistry();
         try {
             ClientPeerProtocol stub = (ClientPeerProtocol) UnicastRemoteObject.exportObject(peer,0);
 
             //Bind the remote object's stub in the registry
-            registry.bind(peer_ap, stub); //register peer object with the name in args[0]
+            registry.bind(service_ap, stub); //register peer object with the name in args[0]
         } catch (AlreadyBoundException e) {
             System.out.println("Object already bound! Rebinding...");
-            registry.rebind(peer_ap, peer);
+            registry.rebind(service_ap, peer);
         }
         System.out.println("Peer " + peer.id + " ready");
     }
