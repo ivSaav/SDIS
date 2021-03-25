@@ -5,12 +5,13 @@ import java.net.InetAddress;
 
 public class MulticastDataChannel {
 
-    public static void multicast(byte[] message, String addr, int port) {
+    public static void multicast(byte[] message, int size, String addr, int port) {
+
         try {
             DatagramSocket socket = new DatagramSocket();
             InetAddress group = InetAddress.getByName(addr);
 
-            DatagramPacket packet = new DatagramPacket(message, message.length, group, port);
+            DatagramPacket packet = new DatagramPacket(message, size, group, port);
             socket.send(packet);
             socket.close();
         }

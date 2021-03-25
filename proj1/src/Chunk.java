@@ -19,4 +19,5 @@ public class Chunk {
     public void addPerceivedReplication() { this.perceivedRepDegree++; }
     public int getChunkNo() { return this.chunkNo; }
     public int getSize() { return this.size; }
+    public int getPerceivedRepDegree() { return this.perceivedRepDegree; }
 }

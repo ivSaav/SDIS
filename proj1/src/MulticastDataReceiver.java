@@ -28,18 +28,20 @@ public class MulticastDataReceiver extends Thread {
             socket.joinGroup(address);
 
             byte[] buffer = new byte[BUFFER_MAX_SIZE];
-
+            
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
-                this.message = new String(packet.getData());
+                byte[] body = new byte[packet.getLength()];
+                System.arraycopy(packet.getData(), 0, body, 0, packet.getLength()); // resize array
+                this.message = new String(body);
+                System.out.println("Length " + packet.getLength());
                 //TODO convert to Message
                 //TODO Ignore messages from the creating peer
-                Thread.sleep(400);
             }
 
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
 

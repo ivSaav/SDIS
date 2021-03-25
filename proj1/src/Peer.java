@@ -63,13 +63,10 @@ public class Peer implements ClientPeerProtocol {
         List<Chunk> fileChunks = this.createChunks(path, fileHash, repDegree);
 
         for (Chunk chunk : fileChunks) {
-            //TODO build header
-            MulticastDataChannel.multicast(chunk.getContents(), this.mdbAddr, this.mdbPort);
+            //TODO build message
+            MulticastDataChannel.multicast(chunk.getContents(), chunk.getSize(), this.mdbAddr, this.mdbPort);
             System.out.printf("MDB: chunkNo %d ; size %d%n", chunk.getChunkNo(), chunk.getSize());
         }
-        byte[] message = "asd".getBytes(StandardCharsets.UTF_8);
-        MulticastDataChannel.multicast(message, this.mdbAddr, this.mdbPort);
-        System.out.println("backed: " + path + ":" + repDegree);
         return "success";
     }
 
@@ -99,10 +96,10 @@ public class Peer implements ClientPeerProtocol {
         }
         System.out.println("Peer " + peer.id + " ready");
 
-
         peer.dataReceiver.start();
         while (true) {
             String message = null;
+
             if ((message = peer.dataReceiver.getMessage()) != null)
                 System.out.println(message);
         }
@@ -129,7 +126,7 @@ public class Peer implements ClientPeerProtocol {
             String originalString = path + attribs.lastModifiedTime() + attribs.creationTime();
 
             final MessageDigest digest = MessageDigest.getInstance("SHA3-256");
-            final byte[] hashbytes = digest.digest(originalString.getBytes(StandardCharsets.UTF_8));
+            final byte[] hashbytes = digest.digest(originalString.getBytes(StandardCharsets.US_ASCII));
             String fileHash = bytesToHex(hashbytes);
             this.addFileEntry(fileHash); // add file entry to files map
             return fileHash;
@@ -153,13 +150,10 @@ public class Peer implements ClientPeerProtocol {
                 int offset = i*num_chunks;
                 int num_read = fstream.read(chunk_bytes, offset, offset + Definitions.CHUNK_SIZE);
 
-                if (num_read < Definitions.CHUNK_SIZE) {
-                    chunk_bytes[num_read] = '\0';
-                }
-
-                Chunk chunk = new Chunk(hash, i, num_read, repDegree, chunk_bytes);
+                byte[] body = new byte[num_read];
+                System.arraycopy(chunk_bytes, 0, body, 0, num_read);
+                Chunk chunk = new Chunk(hash, i, num_read, repDegree, body);
                 this.addChunk(hash, chunk);
-                System.out.println(num_read);
             }
 
             System.out.println("Created " + num_chunks + " chunks");
