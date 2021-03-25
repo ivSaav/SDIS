@@ -5,7 +5,7 @@ import java.net.InetAddress;
 
 public class MulticastDataChannel {
 
-    public void multicast(byte[] message, String addr, int port) {
+    public static void multicast(byte[] message, String addr, int port) {
         try {
             DatagramSocket socket = new DatagramSocket();
             InetAddress group = InetAddress.getByName(addr);

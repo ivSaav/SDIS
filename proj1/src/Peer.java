@@ -2,6 +2,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -15,7 +16,9 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -23,58 +26,49 @@ public class Peer implements ClientPeerProtocol {
 
     private final int id;
     private final String version;
-    private Map<String, String> files;
-    private InetAddress MC_addr;
-    private int MC_port;
-    private InetAddress MDB_addr;
-    private int MDB_port;
-    private InetAddress MDR_addr;
-    private int MDR_port;
+    private Map<String, List<Chunk>> files;
+    private final String mcAddr;
+    private final int mcPort;
+    private final String mdbAddr;
+    private final int mdbPort;
+    private final String mdrAddr;
+    private final int mdrPort;
+    private final MulticastDataReceiver dataReceiver;
 
     public Peer(String version, int id, String MC, String MDB, String MDR) {
         this.id = id;
         this.version = version;
-        this.files = new HashMap<String, String>();
+        this.files = new HashMap<String, List<Chunk>>();
 
         String[] vals = MC.split(":"); //MC
-        try {
-            this.MC_addr = InetAddress.getByName(vals[0]);
-            this.MC_port = Integer.parseInt(vals[1]);
 
-            vals = MDB.split(":");
-            this.MDB_addr = InetAddress.getByName(vals[0]);
-            this.MDB_port = Integer.parseInt(vals[1]);
+        this.mcAddr = vals[0];
+        this.mcPort = Integer.parseInt(vals[1]);
 
-            vals = MDR.split(":");
-            this.MDR_addr = InetAddress.getByName(vals[0]);
-            this.MDR_port = Integer.parseInt(vals[1]);
-        }
-        catch (UnknownHostException e) {
-            System.out.println("Invalid Hostname " + vals[0]);
-            System.exit(1);
-        }
+        vals = MDB.split(":");
+        this.mdbAddr = vals[0];
+        this.mdbPort = Integer.parseInt(vals[1]);
+
+        vals = MDR.split(":");
+        this.mdrAddr = vals[0];
+        this.mdrPort = Integer.parseInt(vals[1]);
+
+        this.dataReceiver = new MulticastDataReceiver(this.id, mdbAddr, mdbPort);
     }
 
     @Override
     public String backup(String path, int repDegree) {
-        try {
-            Path file = Paths.get(path);
-            BasicFileAttributes attribs = Files.readAttributes(file, BasicFileAttributes.class); // get file metadata
 
-            String originalString = path + attribs.lastModifiedTime() + attribs.creationTime();
+        String fileHash = this.createFileHash(path);
+        List<Chunk> fileChunks = this.createChunks(path, fileHash, repDegree);
 
-            final MessageDigest digest = MessageDigest.getInstance("SHA3-256");
-            final byte[] hashbytes = digest.digest(originalString.getBytes(StandardCharsets.UTF_8));
-            String fileHash = bytesToHex(hashbytes);
-
-            System.out.println(fileHash);
-
+        for (Chunk chunk : fileChunks) {
+            //TODO build header
+            MulticastDataChannel.multicast(chunk.getContents(), this.mdbAddr, this.mdbPort);
+            System.out.printf("MDB: chunkNo %d ; size %d%n", chunk.getChunkNo(), chunk.getSize());
         }
-        catch (IOException | NoSuchAlgorithmException e) {
-            System.out.println(e.toString());
-            System.exit(1);
-        }
-
+        byte[] message = "asd".getBytes(StandardCharsets.UTF_8);
+        MulticastDataChannel.multicast(message, this.mdbAddr, this.mdbPort);
         System.out.println("backed: " + path + ":" + repDegree);
         return "success";
     }
@@ -104,6 +98,14 @@ public class Peer implements ClientPeerProtocol {
             registry.rebind(service_ap, peer);
         }
         System.out.println("Peer " + peer.id + " ready");
+
+
+        peer.dataReceiver.start();
+        while (true) {
+            String message = null;
+            if ((message = peer.dataReceiver.getMessage()) != null)
+                System.out.println(message);
+        }
     }
 
     //Retrieved from: https://www.baeldung.com/sha-256-hashing-java
@@ -119,9 +121,28 @@ public class Peer implements ClientPeerProtocol {
         return hexString.toString();
     }
 
-    private void splitFileChunks(String path) {
+    private String createFileHash(String path) {
         try {
+            Path file = Paths.get(path);
+            BasicFileAttributes attribs = Files.readAttributes(file, BasicFileAttributes.class); // get file metadata
 
+            String originalString = path + attribs.lastModifiedTime() + attribs.creationTime();
+
+            final MessageDigest digest = MessageDigest.getInstance("SHA3-256");
+            final byte[] hashbytes = digest.digest(originalString.getBytes(StandardCharsets.UTF_8));
+            String fileHash = bytesToHex(hashbytes);
+            this.addFileEntry(fileHash); // add file entry to files map
+            return fileHash;
+        }
+        catch (IOException | NoSuchAlgorithmException e) {
+            System.out.println(e.toString());
+            System.exit(1);
+        }
+        return null;
+    }
+
+    private List<Chunk> createChunks(String path, String hash, int repDegree) {
+        try {
             File file = new File(path);
             int num_chunks = (int) Math.ceil( (double) file.length() / (double) Definitions.CHUNK_SIZE);
 
@@ -131,9 +152,17 @@ public class Peer implements ClientPeerProtocol {
             for (int i = 0; i < num_chunks; i++) {
                 int offset = i*num_chunks;
                 int num_read = fstream.read(chunk_bytes, offset, offset + Definitions.CHUNK_SIZE);
+
+                if (num_read < Definitions.CHUNK_SIZE) {
+                    chunk_bytes[num_read] = '\0';
+                }
+
+                Chunk chunk = new Chunk(hash, i, num_read, repDegree, chunk_bytes);
+                this.addChunk(hash, chunk);
                 System.out.println(num_read);
             }
 
+            System.out.println("Created " + num_chunks + " chunks");
             fstream.close();
         }
         catch (FileNotFoundException e) {
@@ -142,8 +171,19 @@ public class Peer implements ClientPeerProtocol {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return this.getChunksOfFile(hash);
+    }
 
+    private void addFileEntry(String hash) {
+        this.files.computeIfAbsent(hash, k -> new ArrayList<>());
+    }
 
+    private void addChunk(String fileHash, Chunk chunk) {
+        this.files.get(fileHash).add(chunk);
+    }
+
+    private List<Chunk> getChunksOfFile(String fileHash) {
+        return this.files.get(fileHash);
     }
 
 }
