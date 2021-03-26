@@ -1,7 +1,6 @@
 import enums.MessageType;
 
-import javax.swing.*;
-import java.lang.reflect.Array;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -45,18 +44,18 @@ public class Message {
         String fileId = new String(split.get(3)).toLowerCase();
 
         if (type == MessageType.DELETE)
-            return new Message(minorVersion, majorVersion, type, senderId, fileId, 0, 0, null);
+            return new Message(minorVersion, majorVersion, type, senderId, fileId, -1, -1, null);
 
         int chunkNo = Integer.parseInt(new String(split.get(4)));
         if (type != MessageType.PUTCHUNK) {
             if (type == MessageType.CHUNK)
-                return new Message(minorVersion, majorVersion, type, senderId, fileId, chunkNo, 0, split.get(5));
+                return new Message(minorVersion, majorVersion, type, senderId, fileId, chunkNo, -1, split.get(5));
             else
-                return new Message(minorVersion, majorVersion, type, senderId, fileId, chunkNo, 0, null);
+                return new Message(minorVersion, majorVersion, type, senderId, fileId, chunkNo, -1, null);
         }
 
-        int replicationDegreee = Integer.parseInt(new String(split.get(5)));
-        return new Message(minorVersion, majorVersion, type, senderId, fileId, chunkNo, replicationDegreee, split.get(6));
+        int replicationDegree = Integer.parseInt(new String(split.get(5)));
+        return new Message(minorVersion, majorVersion, type, senderId, fileId, chunkNo, replicationDegree, split.get(6));
     }
 
 
@@ -94,6 +93,35 @@ public class Message {
         return split;
     }
 
+    public static byte[] createMessage(int majorVersion, int minorVersion, MessageType type, int senderId,
+                               String fileId) {
+        return createMessage(majorVersion, minorVersion, type, senderId, fileId, -1, -1, null);
+    }
+
+    public static byte[] createMessage(int majorVersion, int minorVersion, MessageType type, int senderId,
+                               String fileId, int chunkNo) {
+        return createMessage(majorVersion, minorVersion, type, senderId, fileId, chunkNo, -1, null);
+    }
+
+    public static byte[] createMessage(int majorVersion, int minorVersion, MessageType type, int senderId,
+                               String fileId, int chunkNo, byte[] body) {
+        return createMessage(majorVersion, minorVersion, type, senderId, fileId, chunkNo, -1, body);
+    }
+
+    public static byte[] createMessage(int majorVersion, int minorVersion, MessageType type, int senderId,
+                               String fileId, int chunkNo, int replicationDegree, byte[] body) {
+        String header = majorVersion + "." + minorVersion + " " + type + " " + senderId + " " + fileId + " "  + (chunkNo != -1 ? chunkNo + " " : "") + (replicationDegree != -1 ? replicationDegree + " " : "") + "\r\n\r\n";
+
+        if (body == null) {
+            return header.getBytes(StandardCharsets.US_ASCII);
+        }
+        int messageSize = header.length() + body.length;
+        byte[] result = new byte[messageSize];
+        System.arraycopy(header.getBytes(StandardCharsets.US_ASCII), 0, result, 0, header.length());
+        System.arraycopy(body, 0, result, header.length(), body.length);
+
+        return result;
+    }
 
     @Override
     public String toString() {
