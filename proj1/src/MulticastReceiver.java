@@ -4,7 +4,7 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.UnknownHostException;
 
-public class MulticastDataReceiver extends Thread {
+public class MulticastReceiver extends Thread {
 
     private static int BUFFER_MAX_SIZE = 64500;
 
@@ -13,7 +13,7 @@ public class MulticastDataReceiver extends Thread {
     private final int port;
     private Message message;
 
-    public MulticastDataReceiver(int peerId, String address, int port) {
+    public MulticastReceiver(int peerId, String address, int port) {
         this.peerId = peerId;
         this.group = address;
         this.port = port;

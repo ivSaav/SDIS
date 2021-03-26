@@ -43,14 +43,14 @@ public class Message {
         String fileId = new String(split.get(3)).toLowerCase();
 
         if (type == MessageType.DELETE)
-            return new Message(version, type, senderId, fileId, -1, -1, null);
+            return new Message(version, type, senderId, fileId, -1, -1, new byte[] {});
 
         int chunkNo = Integer.parseInt(new String(split.get(4)));
         if (type != MessageType.PUTCHUNK) {
             if (type == MessageType.CHUNK)
                 return new Message(version, type, senderId, fileId, chunkNo, -1, split.get(5));
             else
-                return new Message(version, type, senderId, fileId, chunkNo, -1, null);
+                return new Message(version, type, senderId, fileId, chunkNo, -1, new byte[] {});
         }
         int replicationDegree = Integer.parseInt(new String(split.get(5)));
         return new Message(version, type, senderId, fileId, chunkNo, replicationDegree, split.get(6));
@@ -76,6 +76,9 @@ public class Message {
                         // Has body
                         split.add(Arrays.copyOfRange(data, i, size));
                     }
+                    else {
+                        split.add(new byte[] {});
+                    }
 
                     return split;
                 }
@@ -93,12 +96,12 @@ public class Message {
 
     public static byte[] createMessage(String version, MessageType type, int senderId,
                                String fileId) {
-        return createMessage(version, type, senderId, fileId, -1, -1, null);
+        return createMessage(version, type, senderId, fileId, -1, -1, new byte[] {});
     }
 
     public static byte[] createMessage(String version, MessageType type, int senderId,
                                String fileId, int chunkNo) {
-        return createMessage(version, type, senderId, fileId, chunkNo, -1, null);
+        return createMessage(version, type, senderId, fileId, chunkNo, -1, new byte[] {});
     }
 
     public static byte[] createMessage(String version, MessageType type, int senderId,
@@ -110,7 +113,7 @@ public class Message {
                                String fileId, int chunkNo, int replicationDegree, byte[] body) {
         String header = version + " " + type + " " + senderId + " " + fileId + " "  + (chunkNo != -1 ? chunkNo + " " : "") + (replicationDegree != -1 ? replicationDegree + " " : "") + "\r\n\r\n";
 
-        if (body == null) {
+        if (body.length == 0) {
             return header.getBytes(StandardCharsets.US_ASCII);
         }
         int messageSize = header.length() + body.length;
@@ -130,7 +133,7 @@ public class Message {
                 ", fileId='" + fileId + '\'' +
                 ", chunkNo=" + chunkNo +
                 ", replicationDegree=" + replicationDegree +
-                ", body=" + (body == null ? null : body.length) +
+                ", body=" + body.length +
                 '}';
     }
 }

@@ -15,10 +15,7 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 public class Peer implements ClientPeerProtocol {
@@ -32,7 +29,8 @@ public class Peer implements ClientPeerProtocol {
     private final int mdbPort;
     private final String mdrAddr;
     private final int mdrPort;
-    private final MulticastDataReceiver dataReceiver;
+    private final MulticastReceiver dataReceiver;
+    private final MulticastReceiver controlReceiver;
 
     public Peer(String version, int id, String MC, String MDB, String MDR) {
         this.id = id;
@@ -52,7 +50,8 @@ public class Peer implements ClientPeerProtocol {
         this.mdrAddr = vals[0];
         this.mdrPort = Integer.parseInt(vals[1]);
 
-        this.dataReceiver = new MulticastDataReceiver(this.id, mdbAddr, mdbPort);
+        this.dataReceiver = new MulticastReceiver(this.id, mdbAddr, mdbPort);
+        this.controlReceiver = new MulticastReceiver(this.id, this.mcAddr, this.mcPort);
     }
 
     @Override
@@ -63,10 +62,24 @@ public class Peer implements ClientPeerProtocol {
 
         for (Chunk chunk : fileChunks) {
             byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunk.getChunkNo(), repDegree, chunk.getContents());
-            MulticastDataChannel.multicast(message, message.length, this.mdbAddr, this.mdbPort);
+            MulticastChannel.multicast(message, message.length, this.mdbAddr, this.mdbPort);
             System.out.printf("MDB: chunkNo %d ; size %d%n", chunk.getChunkNo(), chunk.getSize());
         }
         return "success";
+    }
+
+    public void sendStorageResponse(String fileId, int chunkNo) {
+        byte[] message = Message.createMessage(this.version, MessageType.STORED, this.id, fileId, chunkNo);
+        Random rand = new Random();
+        int time = rand.nextInt(400);
+        try {
+            Thread.sleep(time);
+        }
+        catch(InterruptedException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+        MulticastChannel.multicast(message, message.length, this.mcAddr, this.mcPort);
     }
 
     public static void main(String[] args) throws IOException{
@@ -96,11 +109,26 @@ public class Peer implements ClientPeerProtocol {
         System.out.println("Peer " + peer.id + " ready");
 
         peer.dataReceiver.start();
+        peer.controlReceiver.start();
         while (true) {
             Message message = null;
 
-            if ((message = peer.dataReceiver.getMessage()) != null)
-                System.out.println(new String(message.body));
+            if ((message = peer.dataReceiver.getMessage()) != null) {
+                Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length, message.replicationDegree, message.body);
+                System.out.println(message.toString());
+                peer.addFileEntry(message.fileId);
+                peer.addChunk(message.fileId, chunk);
+                chunk.store(String.valueOf(peer.id));
+                peer.sendStorageResponse(message.fileId, message.chunkNo);
+            }
+
+            if ((message = peer.controlReceiver.getMessage()) != null) {
+                Chunk chunk = peer.getChunk(message.fileId, message.chunkNo);
+                chunk.addPerceivedReplication();
+                System.out.printf("STORE from: %d  chunkNo: %d perceived: %d \n", message.senderId, message.chunkNo, chunk.getPerceivedRepDegree());
+            }
+
+
         }
     }
 
@@ -140,20 +168,26 @@ public class Peer implements ClientPeerProtocol {
     private List<Chunk> createChunks(String path, String hash, int repDegree) {
         try {
             File file = new File(path);
-            int num_chunks = (int) Math.ceil( (double) file.length() / (double) Definitions.CHUNK_SIZE);
+            int num_chunks = (int) Math.floor( (double) file.length() / (double) Definitions.CHUNK_SIZE) + 1;
 
-            byte[] chunk_bytes = new byte[Definitions.CHUNK_SIZE];
             FileInputStream fstream = new FileInputStream(file);
+            byte[] data = new byte[(int) file.length()];
+            int num_read = fstream.read(data);
+            fstream.close();
 
-            for (int i = 0; i < num_chunks; i++) {
-                int offset = i*num_chunks;
-                int num_read = fstream.read(chunk_bytes, offset, offset + Definitions.CHUNK_SIZE);
-
-                byte[] body = new byte[num_read];
-                System.arraycopy(chunk_bytes, 0, body, 0, num_read);
-                Chunk chunk = new Chunk(hash, i, num_read, repDegree, body);
+            byte[] chunk_data = new byte[Definitions.CHUNK_SIZE];
+            int i = 0;
+            int offset = 0;
+            for (; i < num_chunks-1; i++) {
+                System.arraycopy(data, offset, chunk_data, 0, Definitions.CHUNK_SIZE);
+                Chunk chunk = new Chunk(hash, i, Definitions.CHUNK_SIZE, repDegree, chunk_data);
                 this.addChunk(hash, chunk);
+                offset += Definitions.CHUNK_SIZE;
             }
+
+            chunk_data = Arrays.copyOfRange(data, offset, num_read);
+            Chunk chunk = new Chunk(hash, i, chunk_data.length, repDegree, chunk_data);
+            this.addChunk(hash, chunk);
 
             System.out.println("Created " + num_chunks + " chunks");
             fstream.close();
@@ -177,6 +211,15 @@ public class Peer implements ClientPeerProtocol {
 
     private List<Chunk> getChunksOfFile(String fileHash) {
         return this.files.get(fileHash);
+    }
+    public Chunk getChunk(String fileId, int chunkNo) {
+        List<Chunk> chunks =  this.files.get(fileId);
+
+        for (Chunk chunk : chunks) {
+            if (chunk.getChunkNo() == chunkNo)
+                return chunk;
+        }
+        return null;
     }
 
 }

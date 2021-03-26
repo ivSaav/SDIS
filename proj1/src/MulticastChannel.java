@@ -3,7 +3,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
-public class MulticastControlChannel {
+public class MulticastChannel {
 
     public static void multicast(byte[] message, int size, String addr, int port) {
 
