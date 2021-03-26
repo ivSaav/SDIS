@@ -11,7 +11,7 @@ public class MulticastDataReceiver extends Thread {
     private int peerId;
     private final String group;
     private final int port;
-    private String message;
+    private Message message;
 
     public MulticastDataReceiver(int peerId, String address, int port) {
         this.peerId = peerId;
@@ -33,12 +33,12 @@ public class MulticastDataReceiver extends Thread {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
-                byte[] body = new byte[packet.getLength()];
-                System.arraycopy(packet.getData(), 0, body, 0, packet.getLength()); // resize array
-                this.message = new String(body);
-                System.out.println("Length " + packet.getLength());
-                //TODO convert to Message
-                //TODO Ignore messages from the creating peer
+                Message m = Message.parse(packet.getData(), packet.getLength());
+
+                if (m.senderId == this.peerId)
+                    continue;
+
+                this.message = m;
             }
 
         } catch (IOException e) {
@@ -47,8 +47,8 @@ public class MulticastDataReceiver extends Thread {
 
     }
 
-    public String getMessage() {
-        String tmp = this.message;
+    public Message getMessage() {
+        Message tmp = this.message;
         this.message = null;
         return tmp;
     }

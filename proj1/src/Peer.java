@@ -1,10 +1,9 @@
+import enums.MessageType;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -63,8 +62,8 @@ public class Peer implements ClientPeerProtocol {
         List<Chunk> fileChunks = this.createChunks(path, fileHash, repDegree);
 
         for (Chunk chunk : fileChunks) {
-            //TODO build message
-            MulticastDataChannel.multicast(chunk.getContents(), chunk.getSize(), this.mdbAddr, this.mdbPort);
+            byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunk.getChunkNo(), repDegree, chunk.getContents());
+            MulticastDataChannel.multicast(message, message.length, this.mdbAddr, this.mdbPort);
             System.out.printf("MDB: chunkNo %d ; size %d%n", chunk.getChunkNo(), chunk.getSize());
         }
         return "success";
@@ -98,10 +97,10 @@ public class Peer implements ClientPeerProtocol {
 
         peer.dataReceiver.start();
         while (true) {
-            String message = null;
+            Message message = null;
 
             if ((message = peer.dataReceiver.getMessage()) != null)
-                System.out.println(message);
+                System.out.println(new String(message.body));
         }
     }
 
