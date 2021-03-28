@@ -22,7 +22,8 @@ public class Peer implements ClientPeerProtocol {
 
     private final int id;
     private final String version;
-    private Map<String, List<Chunk>> files;
+    private final Map<String, List<Chunk>> files; //fileHash --> List<Chunk>
+    private final Map<String, String> fileHashes; //filename --> fileHash
     private final String mcAddr;
     private final int mcPort;
     private final String mdbAddr;
@@ -36,6 +37,7 @@ public class Peer implements ClientPeerProtocol {
         this.id = id;
         this.version = version;
         this.files = new HashMap<String, List<Chunk>>();
+        this.fileHashes = new HashMap<>();
 
         String[] vals = MC.split(":"); //MC
 
@@ -60,10 +62,25 @@ public class Peer implements ClientPeerProtocol {
         String fileHash = this.createFileHash(path);
         List<Chunk> fileChunks = this.createChunks(path, fileHash, repDegree);
 
+        this.fileHashes.put(path, fileHash); // save filename and its generated hash
+
         for (Chunk chunk : fileChunks) {
             byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunk.getChunkNo(), repDegree, chunk.getContents());
             MulticastChannel.multicast(message, message.length, this.mdbAddr, this.mdbPort);
-            System.out.printf("MDB: chunkNo %d ; size %d%n", chunk.getChunkNo(), chunk.getSize());
+            System.out.printf("MDB: chunkNo %d ; size %d\n", chunk.getChunkNo(), chunk.getSize());
+        }
+        return "success";
+    }
+
+    @Override
+    public String delete(String file) {
+        if (this.fileHashes.containsKey(file)) {
+            String hash = fileHashes.get(file);
+            byte[] message = Message.createMessage(this.version, MessageType.DELETE, this.id, hash);
+            MulticastChannel.multicast(message, message.length, this.mcAddr, this.mcPort);
+            System.out.printf("MC: DELETE %s\n", file);
+            // TODO remove file from fileHashes
+            // not removing yet because peer doesn't always get the delete file message
         }
         return "success";
     }
@@ -113,22 +130,27 @@ public class Peer implements ClientPeerProtocol {
         while (true) {
             Message message = null;
 
-            if ((message = peer.dataReceiver.getMessage()) != null) {
+            if ((message = peer.dataReceiver.getMessage()) != null) { //chunk backup
                 Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length, message.replicationDegree, message.body);
                 System.out.println(message.toString());
-                peer.addFileEntry(message.fileId);
+                peer.addFileEntry(null, message.fileId);
                 peer.addChunk(message.fileId, chunk);
-                chunk.store(String.valueOf(peer.id));
+                chunk.store(peer.id);
                 peer.sendStorageResponse(message.fileId, message.chunkNo);
             }
 
             if ((message = peer.controlReceiver.getMessage()) != null) {
-                Chunk chunk = peer.getChunk(message.fileId, message.chunkNo);
-                chunk.addPerceivedReplication();
-                System.out.printf("STORE from: %d  chunkNo: %d perceived: %d \n", message.senderId, message.chunkNo, chunk.getPerceivedRepDegree());
+                System.out.println(message);
+
+                if (message.type == MessageType.STORED) { //stored message
+                    Chunk chunk = peer.getChunk(message.fileId, message.chunkNo);
+                    chunk.addPerceivedReplication();
+                    System.out.printf("STORE from: %d  chunkNo: %d perceived: %d \n", message.senderId, message.chunkNo, chunk.getPerceivedRepDegree());
+                }
+                else if (message.type == MessageType.DELETE) { //delete message
+                    peer.removeFileFromStorage(message.fileId);
+                }
             }
-
-
         }
     }
 
@@ -155,7 +177,7 @@ public class Peer implements ClientPeerProtocol {
             final MessageDigest digest = MessageDigest.getInstance("SHA3-256");
             final byte[] hashbytes = digest.digest(originalString.getBytes(StandardCharsets.US_ASCII));
             String fileHash = bytesToHex(hashbytes);
-            this.addFileEntry(fileHash); // add file entry to files map
+            this.addFileEntry(path, fileHash); // add file entry to files map
             return fileHash;
         }
         catch (IOException | NoSuchAlgorithmException e) {
@@ -201,8 +223,20 @@ public class Peer implements ClientPeerProtocol {
         return this.getChunksOfFile(hash);
     }
 
-    private void addFileEntry(String hash) {
+    private void removeFileFromStorage(String fileHash){
+        if (this.files.containsKey(fileHash)){
+            List<Chunk> chunks = files.get(fileHash);
+            chunks.removeIf(chunk -> chunk.removeStorage(this.id)); // remove chunk from fileHash List
+
+            if (chunks.isEmpty()) // remove file entry from files hashmap
+                this.files.remove(fileHash);
+        }
+    }
+
+    private void addFileEntry(String filename, String hash) {
         this.files.computeIfAbsent(hash, k -> new ArrayList<>());
+        if (filename != null)
+            this.fileHashes.put(filename, hash);
     }
 
     private void addChunk(String fileHash, Chunk chunk) {

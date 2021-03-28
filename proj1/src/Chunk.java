@@ -28,11 +28,11 @@ public class Chunk {
     public int getSize() { return this.size; }
     public int getPerceivedRepDegree() { return this.perceivedRepDegree; }
 
-    public void store(String peerStorageDir) {
+    public void store(int peerId) {
 
         String filename = this.fileId + "_" + this.chunkNo;
         try {
-            File file = new File(".." + File.separator + "storage" + File.separator + "1" + File.separator + filename);
+            File file = new File(".." + File.separator + "storage" + File.separator + peerId + File.separator + filename);
             file.getParentFile().mkdir();
             file.createNewFile();
             FileOutputStream out = new FileOutputStream(file);
@@ -41,8 +41,15 @@ public class Chunk {
             out.close();
         }
         catch (IOException e) {
+            System.out.println("Couldn't locate specified file " + filename);
             e.printStackTrace();
             System.exit(1);
         }
+    }
+
+    public boolean removeStorage(int peerId) {
+        String filename = this.fileId + "_" + this.chunkNo;
+        File file = new File(".." + File.separator + "storage" + File.separator + peerId + File.separator + filename);
+        return file.delete();
     }
 }

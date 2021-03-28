@@ -12,8 +12,8 @@ public class TestApp {
 
 //        ArgsParser.validateArguments(args);
         String peer_ap = args[0];
-        String filename = args[2];
-        int repDegree = Integer.parseInt(args[3]);
+        String filename;
+        int repDegree;
         Definitions.Operation operation = Definitions.Operation.valueOf(args[1]);
 
         try {
@@ -22,7 +22,13 @@ public class TestApp {
 
             String response;
             if (operation == Definitions.Operation.BACKUP) {
+                filename = args[2];
+                repDegree = Integer.parseInt(args[3]);
                 response = stub.backup(filename, repDegree);
+            }
+            else if (operation == Definitions.Operation.DELETE) {
+                filename = args[2];
+                response = stub.delete(filename);
             }
             else {
                 System.out.println("ERROR invalid operation:" + args[2]);
@@ -31,6 +37,7 @@ public class TestApp {
             System.out.println("response: " + response);
 
         } catch (NotBoundException | RemoteException e) {
+            System.out.println("Couldn't perform specified operation " + operation);
             e.printStackTrace();
         }
     }
