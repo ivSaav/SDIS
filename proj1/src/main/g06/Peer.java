@@ -109,22 +109,22 @@ public class Peer implements ClientPeerProtocol {
     }
 
     @Override
-    public String delete(String file) throws RemoteException {
-        return null;
-    }
+    public String delete(String file) {
+        // checking if this peer was the initiator for file backup
+        if (this.fileHashes.containsKey(file)) {
+            // send delete message to other peers
+            FileDetails fileInfo = fileHashes.get(file);
+            byte[] message = Message.createMessage(this.version, MessageType.DELETE, this.id, fileInfo.getHash());
+            controlChannel.multicast(message, message.length);
+            System.out.printf("DELETE %s\n", file);
 
-//    @Override
-//    public String delete(String file) {
-//        if (this.fileHashes.containsKey(file)) {
-//            String hash = fileHashes.get(file);
-//            byte[] message = Message.createMessage(this.version, MessageType.DELETE, this.id, hash);
-//            MulticastChannel.multicast(message, message.length, this.mcAddr, this.mcPort);
-//            System.out.printf("MC: DELETE %s\n", file);
-//            // TODO remove file from fileHashes
-//            // not removing yet because peer doesn't always get the delete file message
-//        }
-//        return "success";
-//    }
+            //remove all data regarding this file
+//            this.removeFile(file);
+
+            return "success";
+        }
+        return "";
+    }
 
     public static void main(String[] args) throws IOException{
 
@@ -172,6 +172,10 @@ public class Peer implements ClientPeerProtocol {
         return id;
     }
 
+    public Map<String, Set<Chunk>> getStoredChunks() {
+        return storedChunks;
+    }
+
     public void addPerceivedReplication(int peer_id, String fileHash, int chunkNo) {
         FileDetails file = this.fileDetails.get(fileHash);
         file.addChunkPeer(chunkNo, peer_id);
@@ -185,5 +189,13 @@ public class Peer implements ClientPeerProtocol {
         );
 
         fileChunks.add(chunk);
+    }
+
+    public void removeFile(String filename) {
+        String hash = this.fileHashes.get(filename).getHash();
+
+        this.fileDetails.remove(hash);
+        this.storedChunks.remove(filename);
+        this.fileHashes.remove(filename);
     }
 }

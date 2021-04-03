@@ -1,7 +1,10 @@
 package main.g06.message.protocols;
 
+import main.g06.Chunk;
 import main.g06.Peer;
 import main.g06.message.Message;
+
+import java.util.Set;
 
 public class DeleteProtocol implements Protocol {
 
@@ -15,16 +18,18 @@ public class DeleteProtocol implements Protocol {
 
     @Override
     public void start() {
-//        peer.removeFileFromStorage(message.fileId);
+        System.out.printf("DELETE from: %d ; fileID: %s\n", message.senderId, message.fileId);
+        this.removeFileFromStorage(message.fileId);
     }
 
-//    private void removeFileFromStorage(String fileHash){
-//        if (this.files.containsKey(fileHash)){
-//            List<Chunk> chunks = files.get(fileHash);
-//            chunks.removeIf(chunk -> chunk.removeStorage(this.id)); // remove chunk from fileHash List
-//
-//            if (chunks.isEmpty()) // remove file entry from files hashmap
-//                this.files.remove(fileHash);
-//        }
-//    }
+    private void removeFileFromStorage(String fileHash){
+        if (peer.getStoredChunks().containsKey(fileHash)){
+            Set<Chunk> chunks = peer.getStoredChunks().get(fileHash);
+
+            chunks.removeIf(chunk -> chunk.removeStorage(peer.getId())); // remove chunk from fileHash List
+
+            if (chunks.isEmpty()) // remove file entry from files hashmap
+                peer.removeFile(fileHash);
+        }
+    }
 }

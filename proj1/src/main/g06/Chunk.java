@@ -41,7 +41,9 @@ public class Chunk {
 
     public boolean removeStorage(int peerId) {
         String filename = this.filehash + "_" + this.chunkNo;
-        File file = new File(".." + File.separator + "storage" + File.separator + peerId + File.separator + filename);
+        File file = new File("storage" + File.separator + peerId + File.separator + filename);
+        if (!file.exists())
+            System.out.printf("Couldn't locate %s \n", filename);
         return file.delete();
     }
 
