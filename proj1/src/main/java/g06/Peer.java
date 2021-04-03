@@ -5,21 +5,11 @@ import main.java.g06.message.MessageType;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.rmi.AlreadyBoundException;
 import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.rmi.server.UnicastRemoteObject;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 
 public class Peer implements ClientPeerProtocol {
@@ -29,14 +19,8 @@ public class Peer implements ClientPeerProtocol {
     private final Map<String, FileDetails> fileHashes; // filename --> FileDetail
     private final Set<String> storedChunks;
 
-    private final String mcAddr;
-    private final int mcPort;
-    private final String mdbAddr;
-    private final int mdbPort;
-    private final String mdrAddr;
-    private final int mdrPort;
-    private final MulticastReceiver dataReceiver;
-    private final MulticastReceiver controlReceiver;
+    private final MulticastChannel backupChannel;
+    private final MulticastChannel controlChannel;
 
     public Peer(String version, int id, String MC, String MDB, String MDR) {
         this.id = id;
@@ -47,19 +31,20 @@ public class Peer implements ClientPeerProtocol {
 
         String[] vals = MC.split(":"); //MC
 
-        this.mcAddr = vals[0];
-        this.mcPort = Integer.parseInt(vals[1]);
+        String mcAddr = vals[0];
+        int mcPort = Integer.parseInt(vals[1]);
 
         vals = MDB.split(":");
-        this.mdbAddr = vals[0];
-        this.mdbPort = Integer.parseInt(vals[1]);
+        String mdbAddr = vals[0];
+        int mdbPort = Integer.parseInt(vals[1]);
 
         vals = MDR.split(":");
-        this.mdrAddr = vals[0];
-        this.mdrPort = Integer.parseInt(vals[1]);
+        String mdrAddr = vals[0];
+        int mdrPort = Integer.parseInt(vals[1]);
 
-        this.dataReceiver = new MulticastReceiver(this.id, mdbAddr, mdbPort);
-        this.controlReceiver = new MulticastReceiver(this.id, this.mcAddr, this.mcPort);
+        // TODO: Use custom ThreadPoolExecutor to maximize performance
+        this.backupChannel = new MulticastChannel(this, mdbAddr, mdbPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
+        this.controlChannel = new MulticastChannel(this, mcAddr, mcPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
     }
 
     @Override
@@ -85,7 +70,7 @@ public class Peer implements ClientPeerProtocol {
             while ((num_read = fstream.read(chunk_data)) != -1) {
                 // Send message
                 byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, chunk_data);
-                MulticastChannel.multicast(message, message.length, this.mdbAddr, this.mdbPort);
+                backupChannel.multicast(message, message.length);
                 System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
 
                 // TODO: Repeat message N times if rep degree was not reached
@@ -97,7 +82,7 @@ public class Peer implements ClientPeerProtocol {
 
             if (last_num_read == Definitions.CHUNK_SIZE) {
                 byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, new byte[] {});
-                MulticastChannel.multicast(message, message.length, this.mdbAddr, this.mdbPort);
+                backupChannel.multicast(message, message.length);
                 System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
             }
 
@@ -117,7 +102,7 @@ public class Peer implements ClientPeerProtocol {
         return null;
     }
 
-    //    @Override
+//    @Override
 //    public String delete(String file) {
 //        if (this.fileHashes.containsKey(file)) {
 //            String hash = fileHashes.get(file);

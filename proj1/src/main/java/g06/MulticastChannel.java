@@ -1,19 +1,66 @@
 package main.java.g06;
 
+import main.java.g06.message.Message;
+import main.java.g06.message.MessageThread;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.MulticastSocket;
+import java.util.concurrent.ThreadPoolExecutor;
 
-public class MulticastChannel {
+public class MulticastChannel extends Thread {
 
-    public static void multicast(byte[] message, int size, String addr, int port) {
+    private static final int BUFFER_MAX_SIZE = 64500;
+
+    private final Peer peer;
+    private final String group;
+    private final int port;
+    private final ThreadPoolExecutor poolExecutor;
+
+    public MulticastChannel(Peer peer, String address, int port, ThreadPoolExecutor poolExecutor) {
+        this.peer = peer;
+        this.group = address;
+        this.port = port;
+        this.poolExecutor = poolExecutor;
+    }
+
+    @Override
+    public void run() {
+
+        try {
+            MulticastSocket socket = new MulticastSocket(this.port);
+            InetAddress address = InetAddress.getByName(this.group);
+            socket.joinGroup(address);
+
+            byte[] buffer = new byte[BUFFER_MAX_SIZE];
+            
+            while (true) {
+                if (this.isInterrupted()) {
+                    poolExecutor.shutdown();
+                    return;
+                }
+
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packet);
+
+                MessageThread mt = new MessageThread(peer, packet);
+                this.poolExecutor.submit(mt);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void multicast(byte[] message, int size) {
 
         try {
             DatagramSocket socket = new DatagramSocket();
-            InetAddress group = InetAddress.getByName(addr);
+            InetAddress address = InetAddress.getByName(this.group);
 
-            DatagramPacket packet = new DatagramPacket(message, size, group, port);
+            DatagramPacket packet = new DatagramPacket(message, size, address, this.port);
             socket.send(packet);
             socket.close();
         }
@@ -22,4 +69,5 @@ public class MulticastChannel {
             System.exit(1);
         }
     }
+
 }
