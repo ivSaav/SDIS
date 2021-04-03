@@ -21,6 +21,7 @@ public class Peer implements ClientPeerProtocol {
     private final int id;
     private final String version;
     private final Map<String, FileDetails> fileHashes; // filename --> FileDetail
+    private final Map<String, FileDetails> fileDetails; // filehash --> FileDetail
     private final Map<String, Set<Chunk>> storedChunks; // filehash --> Chunks
 
     private final MulticastChannel backupChannel;
@@ -31,6 +32,7 @@ public class Peer implements ClientPeerProtocol {
         this.version = version;
         // TODO: Reload this data from disk
         this.fileHashes = new HashMap<>();
+        this.fileDetails = new HashMap<>();
         this.storedChunks = new HashMap<>();
 
         String[] vals = MC.split(":"); //MC
@@ -64,7 +66,9 @@ public class Peer implements ClientPeerProtocol {
 
             // Save filename and its generated hash
             // TODO: Write to file in case peer crashes we must resume this operation
-            this.fileHashes.put(path, new FileDetails(fileHash, file.length(), repDegree));
+            FileDetails fd = new FileDetails(fileHash, file.length(), repDegree);
+            this.fileHashes.put(path, fd);
+            this.fileDetails.put(fileHash, fd);
 
             FileInputStream fstream = new FileInputStream(file);
             byte[] chunk_data = new byte[Definitions.CHUNK_SIZE];

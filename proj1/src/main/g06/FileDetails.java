@@ -1,9 +1,6 @@
 package main.g06;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class FileDetails {
     private final String hash;
@@ -45,5 +42,19 @@ public class FileDetails {
 
     public void resetChunkOwners(int chunkNo) {
         chunks.get(chunkNo).clear();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o instanceof String) return this.hash.equals(o);
+        if (!(o instanceof FileDetails)) return false;
+        FileDetails that = (FileDetails) o;
+        return hash.equals(that.hash);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(hash);
     }
 }
