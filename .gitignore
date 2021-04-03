@@ -22,7 +22,7 @@
 *.rar
 
 # Out files of projects
-out/
+proj1/out/
 
 # Storage
 proj1/src/out/storage/
