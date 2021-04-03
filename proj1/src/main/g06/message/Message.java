@@ -127,12 +127,12 @@ public class Message {
     @Override
     public String toString() {
         return "Message{" +
-                "version" + version +
-                ", type=" + type +
+                "v=" + version +
+                ", " + type +
                 ", senderId=" + senderId +
-                ", fileId='" + fileId + '\'' +
+                ", fileId='" + fileId.substring(0, 6) + '\'' +
                 ", chunkNo=" + chunkNo +
-                ", replicationDegree=" + replicationDegree +
+                ", repDeg=" + replicationDegree +
                 ", body=" + body.length +
                 '}';
     }
