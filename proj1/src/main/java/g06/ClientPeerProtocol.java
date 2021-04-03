@@ -1,3 +1,5 @@
+package main.java.g06;
+
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 

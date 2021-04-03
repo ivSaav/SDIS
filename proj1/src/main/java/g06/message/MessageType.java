@@ -1,8 +1,4 @@
-package enums;
-
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+package main.java.g06.message;
 
 public enum MessageType {
     PUTCHUNK,

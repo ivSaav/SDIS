@@ -1,8 +1,11 @@
+package main.java.g06;
+
+import main.java.g06.message.Message;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.net.UnknownHostException;
 
 public class MulticastReceiver extends Thread {
 

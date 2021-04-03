@@ -1,4 +1,4 @@
-import enums.MessageType;
+package main.java.g06.message;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;

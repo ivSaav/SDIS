@@ -1,3 +1,4 @@
+package main.java.g06;
 
 public class Definitions {
 

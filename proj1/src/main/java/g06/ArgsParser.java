@@ -1,3 +1,5 @@
+package main.java.g06;
+
 public class ArgsParser {
 
     private static Definitions.Operation oper;
