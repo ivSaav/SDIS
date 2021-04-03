@@ -1,4 +1,4 @@
-package main.java.g06.message;
+package main.g06.message;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;

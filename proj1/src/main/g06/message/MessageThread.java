@@ -1,8 +1,8 @@
-package main.java.g06.message;
+package main.g06.message;
 
-import main.java.g06.Peer;
-import main.java.g06.message.protocols.Protocol;
-import main.java.g06.message.protocols.ProtocolBuilder;
+import main.g06.Peer;
+import main.g06.message.protocols.Protocol;
+import main.g06.message.protocols.ProtocolBuilder;
 
 import java.net.DatagramPacket;
 
@@ -29,7 +29,7 @@ public class MessageThread extends Thread {
 
     @Override
     public void run() {
-        if (parsePacket())
+        if (!parsePacket())
             return;
 
         // Choose and build message

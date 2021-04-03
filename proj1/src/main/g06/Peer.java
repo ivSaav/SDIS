@@ -1,12 +1,16 @@
-package main.java.g06;
+package main.g06;
 
-import main.java.g06.message.Message;
-import main.java.g06.message.MessageType;
+import main.g06.message.Message;
+import main.g06.message.MessageType;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.rmi.AlreadyBoundException;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -17,7 +21,7 @@ public class Peer implements ClientPeerProtocol {
     private final int id;
     private final String version;
     private final Map<String, FileDetails> fileHashes; // filename --> FileDetail
-    private final Set<String> storedChunks;
+    private final Map<String, Set<Chunk>> storedChunks; // filehash --> Chunks
 
     private final MulticastChannel backupChannel;
     private final MulticastChannel controlChannel;
@@ -27,7 +31,7 @@ public class Peer implements ClientPeerProtocol {
         this.version = version;
         // TODO: Reload this data from disk
         this.fileHashes = new HashMap<>();
-        this.storedChunks = new HashSet<>();
+        this.storedChunks = new HashMap<>();
 
         String[] vals = MC.split(":"); //MC
 
@@ -69,7 +73,9 @@ public class Peer implements ClientPeerProtocol {
             // Read file chunks and send them
             while ((num_read = fstream.read(chunk_data)) != -1) {
                 // Send message
-                byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, chunk_data);
+                byte[] message = num_read == Definitions.CHUNK_SIZE ?
+                        Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, chunk_data)
+                        : Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, Arrays.copyOfRange(chunk_data, 0, num_read));
                 backupChannel.multicast(message, message.length);
                 System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
 
@@ -80,6 +86,7 @@ public class Peer implements ClientPeerProtocol {
                 chunkNo++;
             }
 
+            // Case of last chunk being size 0
             if (last_num_read == Definitions.CHUNK_SIZE) {
                 byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, new byte[] {});
                 backupChannel.multicast(message, message.length);
@@ -114,88 +121,60 @@ public class Peer implements ClientPeerProtocol {
 //        }
 //        return "success";
 //    }
-//
-//    public void sendStorageResponse(String fileId, int chunkNo) {
-//        byte[] message = Message.createMessage(this.version, MessageType.STORED, this.id, fileId, chunkNo);
-//        Random rand = new Random();
-//        int time = rand.nextInt(400);
-//        try {
-//            Thread.sleep(time);
-//        }
-//        catch(InterruptedException e) {
-//            e.printStackTrace();
-//            System.exit(1);
-//        }
-//        MulticastChannel.multicast(message, message.length, this.mcAddr, this.mcPort);
-//    }
-//
-//    public static void main(String[] args) throws IOException{
-//
-//        if (args.length < 1) {
-//            System.out.println("usage: Peer <remote_object_name>");
-//            throw new IOException("Invalid usage");
-//        }
-//
-//        String version = args[0];
-//        int id = Integer.parseInt(args[1]);
-//        String service_ap = args[2];
-//
-//        String MC = args[3], MDB = args[4], MDR = args[5];
-//
-//        Peer peer = new Peer(version, id, MC, MDB, MDR);
-//        Registry registry = LocateRegistry.getRegistry();
-//        try {
-//            ClientPeerProtocol stub = (ClientPeerProtocol) UnicastRemoteObject.exportObject(peer,0);
-//
-//            //Bind the remote object's stub in the registry
-//            registry.bind(service_ap, stub); //register peer object with the name in args[0]
-//        } catch (AlreadyBoundException e) {
-//            System.out.println("Object already bound! Rebinding...");
-//            registry.rebind(service_ap, peer);
-//        }
-//        System.out.println("Peer " + peer.id + " ready");
-//
-//        peer.dataReceiver.start();
-//        peer.controlReceiver.start();
-//        while (true) {
-//            Message message = null;
-//
-//            if ((message = peer.dataReceiver.getMessage()) != null) { //chunk backup
-//                Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length, message.replicationDegree, message.body);
-//                System.out.println(message.toString());
-//                peer.addFileEntry(null, message.fileId);
-//                peer.addChunk(message.fileId, chunk);
-//                chunk.store(peer.id);
-//                peer.sendStorageResponse(message.fileId, message.chunkNo);
-//            }
-//
-//            if ((message = peer.controlReceiver.getMessage()) != null) {
-//                System.out.println(message);
-//
-//                if (message.type == MessageType.STORED) { //stored message
-//                    Chunk chunk = peer.getChunk(message.fileId, message.chunkNo);
-//                    chunk.addPerceivedReplication();
-//                    System.out.printf("STORE from: %d  chunkNo: %d perceived: %d \n", message.senderId, message.chunkNo, chunk.getPerceivedRepDegree());
-//                }
-//                else if (message.type == MessageType.DELETE) { //delete message
-//                    peer.removeFileFromStorage(message.fileId);
-//                }
-//            }
-//        }
-//    }
-//
-//    private void removeFileFromStorage(String fileHash){
-//        if (this.files.containsKey(fileHash)){
-//            List<Chunk> chunks = files.get(fileHash);
-//            chunks.removeIf(chunk -> chunk.removeStorage(this.id)); // remove chunk from fileHash List
-//
-//            if (chunks.isEmpty()) // remove file entry from files hashmap
-//                this.files.remove(fileHash);
-//        }
-//    }
 
+    public static void main(String[] args) throws IOException{
+
+        if (args.length < 1) {
+            System.out.println("usage: Peer <remote_object_name>");
+            throw new IOException("Invalid usage");
+        }
+
+        String version = args[0];
+        int id = Integer.parseInt(args[1]);
+        String service_ap = args[2];
+
+        String MC = args[3], MDB = args[4], MDR = args[5];
+
+        Peer peer = new Peer(version, id, MC, MDB, MDR);
+        Registry registry = LocateRegistry.getRegistry();
+        try {
+            ClientPeerProtocol stub = (ClientPeerProtocol) UnicastRemoteObject.exportObject(peer,0);
+
+            //Bind the remote object's stub in the registry
+            registry.bind(service_ap, stub); //register peer object with the name in args[0]
+        } catch (AlreadyBoundException e) {
+            System.out.println("Object already bound! Rebinding...");
+            registry.rebind(service_ap, peer);
+        }
+        System.out.println("Peer " + peer.id + " ready");
+
+        peer.backupChannel.start();
+        peer.controlChannel.start();
+    }
+
+    public String getVersion() {
+        return version;
+    }
+
+    public MulticastChannel getBackupChannel() {
+        return backupChannel;
+    }
+
+    public MulticastChannel getControlChannel() {
+        return controlChannel;
+    }
 
     public int getId() {
         return id;
+    }
+
+    // TODO: Do synchronized stuff
+    public void addStoredChunk(Chunk chunk) {
+        Set<Chunk> fileChunks = this.storedChunks.computeIfAbsent(
+                chunk.getFilehash(),
+                l -> new HashSet<>()
+        );
+
+        fileChunks.add(chunk);
     }
 }

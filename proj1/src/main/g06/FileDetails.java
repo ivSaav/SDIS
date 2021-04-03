@@ -1,4 +1,4 @@
-package main.java.g06;
+package main.g06;
 
 import java.util.ArrayList;
 import java.util.HashSet;

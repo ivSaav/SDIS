@@ -1,7 +1,6 @@
-package main.java.g06;
+package main.g06;
 
-import main.java.g06.message.Message;
-import main.java.g06.message.MessageThread;
+import main.g06.message.MessageThread;
 
 import java.io.IOException;
 import java.net.DatagramPacket;

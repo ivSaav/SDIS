@@ -1,5 +1,6 @@
-package main.java.g06;
+package main.g06;
 
+import java.io.File;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -11,6 +12,8 @@ public class TestApp {
 
     public static void main(String[] args) {
 
+        System.out.println(new File(".").getAbsolutePath());
+        System.out.println((new File("asd.txt").exists()));
 
 //        ArgsParser.validateArguments(args);
         String peer_ap = args[0];

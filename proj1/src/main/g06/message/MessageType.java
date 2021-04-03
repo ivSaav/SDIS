@@ -1,4 +1,4 @@
-package main.java.g06.message;
+package main.g06.message;
 
 public enum MessageType {
     PUTCHUNK,

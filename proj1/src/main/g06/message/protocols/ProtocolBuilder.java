@@ -1,10 +1,8 @@
-package main.java.g06.message.protocols;
+package main.g06.message.protocols;
 
-import main.java.g06.Peer;
-import main.java.g06.message.Message;
-import main.java.g06.message.MessageType;
-import main.java.g06.message.protocols.PutchunkProtocol;
-import main.java.g06.message.protocols.StoredProtocol;
+import main.g06.Peer;
+import main.g06.message.Message;
+import main.g06.message.MessageType;
 
 import java.util.EnumMap;
 import java.util.Map;
