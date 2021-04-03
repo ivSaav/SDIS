@@ -7,12 +7,12 @@ import java.util.Set;
 
 public class FileDetails {
     private final String hash;
-    private final int size;
+    private final long size;
     private final int desiredRepDegree;
 
     private final List<Set<Integer>> chunks;
 
-    public FileDetails(String hash, int size, int desiredRepDegree) {
+    public FileDetails(String hash, long size, int desiredRepDegree) {
         this.hash = hash;
         this.size = size;
         this.desiredRepDegree = desiredRepDegree;
@@ -27,7 +27,7 @@ public class FileDetails {
         return hash;
     }
 
-    public int getSize() {
+    public long getSize() {
         return size;
     }
 
