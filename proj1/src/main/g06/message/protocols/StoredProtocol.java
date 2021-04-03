@@ -1,5 +1,6 @@
 package main.g06.message.protocols;
 
+import main.g06.Chunk;
 import main.g06.Peer;
 import main.g06.message.Message;
 
@@ -15,8 +16,7 @@ public class StoredProtocol implements Protocol {
 
     @Override
     public void start() {
-//        Chunk chunk = peer.getChunk(message.fileId, message.chunkNo);
-//        chunk.addPerceivedReplication();
-//        System.out.printf("STORE from: %d  chunkNo: %d perceived: %d \n", message.senderId, message.chunkNo, chunk.getPerceivedRepDegree());
+        System.out.printf("STORED from: %d  chunkNo: %d \n", message.senderId, message.chunkNo);
+        peer.addPerceivedReplication(peer.getId(), message.fileId, message.chunkNo);
     }
 }

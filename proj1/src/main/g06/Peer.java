@@ -172,6 +172,11 @@ public class Peer implements ClientPeerProtocol {
         return id;
     }
 
+    public void addPerceivedReplication(int peer_id, String fileHash, int chunkNo) {
+        FileDetails file = this.fileDetails.get(fileHash);
+        file.addChunkPeer(chunkNo, peer_id);
+    }
+
     // TODO: Do synchronized stuff
     public void addStoredChunk(Chunk chunk) {
         Set<Chunk> fileChunks = this.storedChunks.computeIfAbsent(

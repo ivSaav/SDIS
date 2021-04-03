@@ -7,23 +7,18 @@ public class Chunk {
     private final String filehash;
     private final int chunkNo;
     private final int size;
-    private final int desiredRepDegree;
-    private int perceivedRepDegree;
 
     public Chunk(String filehash, int chunkNo, int size, int desiredRepDegree) {
         this.filehash = filehash;
         this.chunkNo = chunkNo;
         this.size = size;
-        this.desiredRepDegree = desiredRepDegree;
-        this.perceivedRepDegree = 0;
     }
 
-    public void addPerceivedReplication() { this.perceivedRepDegree++; }
+
 
     public String getFilehash() { return filehash; }
     public int getChunkNo() { return this.chunkNo; }
     public int getSize() { return this.size; }
-    public int getPerceivedRepDegree() { return this.perceivedRepDegree; }
 
     public void store(int peerId, byte[] contents) {
 
