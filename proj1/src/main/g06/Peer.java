@@ -28,11 +28,11 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public Peer(String version, int id, String MC, String MDB, String MDR) {
         this.id = id;
         this.version = version;
-        // TODO: Reload this data from disk
         this.fileHashes = new HashMap<>();
         this.fileDetails = new HashMap<>();
         this.storedChunks = new HashMap<>();
 
+        // checking if there is a backed up version of this peer
         this.recoverData();
 
         String[] vals = MC.split(":"); //MC
@@ -119,7 +119,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
             System.out.printf("DELETE %s\n", file);
 
             //remove all data regarding this file
-//            this.removeFile(file);
+            this.removeFile(file);
 
             return "success";
         }
@@ -191,9 +191,18 @@ public class Peer implements ClientPeerProtocol, Serializable {
         fileChunks.add(chunk);
     }
 
+    // TODO create thread to perform this operation
     public void backupData() {
         try {
-            FileOutputStream fstream = new FileOutputStream("file" + this.id + ".ser");
+            String filename = Definitions.STORAGE_DIR + File.separator + this.id + File.separator + "backup.ser";
+            File file = new File(filename);
+
+            if (!file.exists()) {
+                file.getParentFile().mkdirs();
+                file.createNewFile();
+            }
+
+            FileOutputStream fstream = new FileOutputStream(filename);
             ObjectOutputStream oos = new ObjectOutputStream(fstream);
 
             oos.writeObject(this);
@@ -206,11 +215,16 @@ public class Peer implements ClientPeerProtocol, Serializable {
     }
 
     public void recoverData() {
+
+        String filename = Definitions.STORAGE_DIR + File.separator + this.id + File.separator + "backup.ser";
         try {
-            File f = new File("file" + this.id  + ".ser");
-            if (!f.exists())
+            File file = new File(filename);
+            if (!file.exists()) // didn't find a backed up version
                 return;
-            FileInputStream fstream = new FileInputStream(f);
+            System.out.println("Recovering last saved state");
+
+            // fetch backed up data
+            FileInputStream fstream = new FileInputStream(file);
             ObjectInputStream ois = new ObjectInputStream(fstream);
             Peer previous_version = (Peer) ois.readObject(); // reading object from serialized file
 
@@ -222,6 +236,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
+        System.out.println(this);
     }
 
     public void removeFile(String filename) {
