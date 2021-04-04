@@ -1,13 +1,16 @@
 package main.g06;
 
+import java.io.IOException;
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.*;
 
-public class FileDetails {
-    private final String hash;
-    private final long size;
-    private final int desiredRepDegree;
+public class FileDetails implements Serializable {
+    private String hash;
+    private long size;
+    private int desiredRepDegree;
 
-    private final List<Set<Integer>> chunks;
+    private List<Set<Integer>> chunks;
 
     public FileDetails(String hash, long size, int desiredRepDegree) {
         this.hash = hash;
@@ -15,7 +18,10 @@ public class FileDetails {
         this.desiredRepDegree = desiredRepDegree;
 
         this.chunks = new ArrayList<>();
-        for (int i = 0; i < size / Definitions.CHUNK_SIZE; i++) {
+
+        // number of chunks necessary to backup this file
+        int num_chunks = (int) Math.floor( (double) size / (double) Definitions.CHUNK_SIZE) + 1;
+        for (int i = 0; i < num_chunks; i++) {
             this.chunks.add(new HashSet<>());
         }
     }
@@ -56,5 +62,30 @@ public class FileDetails {
     @Override
     public int hashCode() {
         return Objects.hash(hash);
+    }
+
+    @Override
+    public String toString() {
+        return "FileDetails{" +
+                "hash='" + hash + '\'' +
+                ", size=" + size +
+                ", desiredRepDegree=" + desiredRepDegree +
+                ", chunks=" + chunks +
+                '}';
+    }
+
+    @Serial
+    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+        out.writeUTF(this.hash);
+        out.writeLong(this.size);
+        out.writeInt(this.desiredRepDegree);
+        out.writeObject(this.chunks);
+    }
+    @Serial
+    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+        this.hash = in.readUTF();
+        this.size = in.readLong();
+        this.desiredRepDegree = in.readInt();
+        this.chunks = (List<Set<Integer>>) in.readObject();
     }
 }

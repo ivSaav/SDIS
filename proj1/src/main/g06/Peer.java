@@ -3,9 +3,7 @@ package main.g06;
 import main.g06.message.Message;
 import main.g06.message.MessageType;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.rmi.AlreadyBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -16,13 +14,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
 
-public class Peer implements ClientPeerProtocol {
+public class Peer implements ClientPeerProtocol, Serializable {
 
     private final int id;
     private final String version;
-    private final Map<String, FileDetails> fileHashes; // filename --> FileDetail
-    private final Map<String, FileDetails> fileDetails; // filehash --> FileDetail
-    private final Map<String, Set<Chunk>> storedChunks; // filehash --> Chunks
+    private Map<String, FileDetails> fileHashes; // filename --> FileDetail
+    private Map<String, FileDetails> fileDetails; // filehash --> FileDetail
+    private Map<String, Set<Chunk>> storedChunks; // filehash --> Chunks
 
     private final MulticastChannel backupChannel;
     private final MulticastChannel controlChannel;
@@ -34,6 +32,8 @@ public class Peer implements ClientPeerProtocol {
         this.fileHashes = new HashMap<>();
         this.fileDetails = new HashMap<>();
         this.storedChunks = new HashMap<>();
+
+        this.recoverData();
 
         String[] vals = MC.split(":"); //MC
 
@@ -179,6 +179,7 @@ public class Peer implements ClientPeerProtocol {
     public void addPerceivedReplication(int peer_id, String fileHash, int chunkNo) {
         FileDetails file = this.fileDetails.get(fileHash);
         file.addChunkPeer(chunkNo, peer_id);
+        this.backupData();
     }
 
     // TODO: Do synchronized stuff
@@ -187,8 +188,40 @@ public class Peer implements ClientPeerProtocol {
                 chunk.getFilehash(),
                 l -> new HashSet<>()
         );
-
         fileChunks.add(chunk);
+    }
+
+    public void backupData() {
+        try {
+            FileOutputStream fstream = new FileOutputStream("file" + this.id + ".ser");
+            ObjectOutputStream oos = new ObjectOutputStream(fstream);
+
+            oos.writeObject(this);
+            oos.flush();
+            oos.close();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void recoverData() {
+        try {
+            File f = new File("file" + this.id  + ".ser");
+            if (!f.exists())
+                return;
+            FileInputStream fstream = new FileInputStream(f);
+            ObjectInputStream ois = new ObjectInputStream(fstream);
+            Peer previous_version = (Peer) ois.readObject(); // reading object from serialized file
+
+            // recovering missing data
+            this.storedChunks = previous_version.storedChunks;
+            this.fileHashes = previous_version.fileHashes;
+            this.fileDetails = previous_version.fileDetails;
+
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     public void removeFile(String filename) {
@@ -197,5 +230,31 @@ public class Peer implements ClientPeerProtocol {
         this.fileDetails.remove(hash);
         this.storedChunks.remove(filename);
         this.fileHashes.remove(filename);
+    }
+
+    @Override
+    public String toString() {
+        return "Peer{" +
+                "id=" + id +
+                ", version='" + version + '\'' +
+                ", fileHashes=" + fileHashes +
+                ", fileDetails=" + fileDetails +
+                ", storedChunks=" + storedChunks +
+                ", backupChannel=" + backupChannel +
+                ", controlChannel=" + controlChannel +
+                '}';
+    }
+
+    @Serial
+    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+        out.writeObject(this.fileHashes);
+        out.writeObject(this.fileDetails);
+        out.writeObject(this.storedChunks);
+    }
+    @Serial
+    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+        this.fileHashes = (Map<String, FileDetails>) in.readObject();
+        this.fileDetails = (Map<String, FileDetails>) in.readObject();
+        this.storedChunks = (Map<String, Set<Chunk>>) in.readObject();
     }
 }

@@ -1,12 +1,14 @@
 package main.g06;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.Objects;
+import java.util.Set;
 
-public class Chunk {
-    private final String filehash;
-    private final int chunkNo;
-    private final int size;
+public class Chunk implements Serializable {
+    private String filehash;
+    private int chunkNo;
+    private int size;
 
     public Chunk(String filehash, int chunkNo, int size, int desiredRepDegree) {
         this.filehash = filehash;
@@ -58,5 +60,27 @@ public class Chunk {
     @Override
     public int hashCode() {
         return Objects.hash(filehash, chunkNo);
+    }
+
+    @Override
+    public String toString() {
+        return "Chunk{" +
+                "filehash='" + filehash + '\'' +
+                ", chunkNo=" + chunkNo +
+                ", size=" + size +
+                '}';
+    }
+
+    @Serial
+    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+        out.writeUTF(this.filehash);
+        out.writeInt(this.chunkNo);
+        out.writeInt(this.size);
+    }
+    @Serial
+    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+        this.filehash = in.readUTF();
+        this.chunkNo = in.readInt();
+        this.size = in.readInt();
     }
 }
