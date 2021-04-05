@@ -15,7 +15,8 @@ public class FileDetails {
         this.desiredRepDegree = desiredRepDegree;
 
         this.chunks = new ArrayList<>();
-        for (int i = 0; i < size / Definitions.CHUNK_SIZE; i++) {
+        int num_chunks = (int) Math.floor( (double) size / (double) Definitions.CHUNK_SIZE) + 1;
+        for (int i = 0; i < num_chunks; i++) {
             this.chunks.add(new HashSet<>());
         }
     }

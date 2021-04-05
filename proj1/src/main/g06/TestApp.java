@@ -15,10 +15,10 @@ public class TestApp {
         System.out.println(new File(".").getAbsolutePath());
         System.out.println((new File("asd.txt").exists()));
 
-//        ArgsParser.validateArguments(args);
         String peer_ap = args[0];
         String filename;
         int repDegree;
+        int max_size;
         Definitions.Operation operation = Definitions.Operation.valueOf(args[1]);
 
         try {
@@ -34,6 +34,10 @@ public class TestApp {
             else if (operation == Definitions.Operation.DELETE) {
                 filename = args[2];
                 response = stub.delete(filename);
+            }
+            else if (operation == Definitions.Operation.RECLAIM) {
+                max_size = Integer.parseInt(args[2]);
+                response = stub.reclaim(max_size);
             }
             else {
                 System.out.println("ERROR invalid operation:" + args[2]);

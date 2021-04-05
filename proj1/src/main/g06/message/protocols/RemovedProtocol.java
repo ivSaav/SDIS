@@ -15,6 +15,7 @@ public class RemovedProtocol implements Protocol {
 
     @Override
     public void start() {
+        System.out.println(this.message);
 
     }
 }

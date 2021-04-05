@@ -20,6 +20,7 @@ public class Peer implements ClientPeerProtocol {
 
     private final int id;
     private final String version;
+    private int disk_usage; //disk usage in KBytes
     private final Map<String, FileDetails> fileHashes; // filename --> FileDetail
     private final Map<String, FileDetails> fileDetails; // filehash --> FileDetail
     private final Map<String, Set<Chunk>> storedChunks; // filehash --> Chunks
@@ -30,6 +31,7 @@ public class Peer implements ClientPeerProtocol {
     public Peer(String version, int id, String MC, String MDB, String MDR) {
         this.id = id;
         this.version = version;
+        this.disk_usage = 0;
         // TODO: Reload this data from disk
         this.fileHashes = new HashMap<>();
         this.fileDetails = new HashMap<>();
@@ -120,10 +122,33 @@ public class Peer implements ClientPeerProtocol {
 
             //remove all data regarding this file
 //            this.removeFile(file);
+            this.disk_usage -= fileInfo.getSize() / 1000;
 
             return "success";
         }
         return "";
+    }
+
+    @Override
+    public String reclaim(int new_capacity) {
+
+        List<Chunk> stored = new ArrayList<>();
+        for (Set<Chunk> chunks : this.storedChunks.values())
+            stored.addAll(chunks);
+
+        System.out.println(this.storedChunks);
+
+        while (this.disk_usage > new_capacity) {
+            Chunk curr = stored.remove(0); // process first
+            this.disk_usage -= curr.getSize() / 1000;
+
+            curr.removeStorage(this.id);
+
+            byte[] message = Message.createMessage(this.version, MessageType.REMOVED, this.id, curr.getFilehash(), curr.getChunkNo());
+            controlChannel.multicast(message, message.length);
+        }
+
+        return "success";
     }
 
     public static void main(String[] args) throws IOException{
@@ -187,6 +212,8 @@ public class Peer implements ClientPeerProtocol {
                 chunk.getFilehash(),
                 l -> new HashSet<>()
         );
+
+        this.disk_usage += chunk.getSize() / 1000; // update current disk space usage
 
         fileChunks.add(chunk);
     }

@@ -8,7 +8,7 @@ public class Chunk {
     private final int chunkNo;
     private final int size;
 
-    public Chunk(String filehash, int chunkNo, int size, int desiredRepDegree) {
+    public Chunk(String filehash, int chunkNo, int size) {
         this.filehash = filehash;
         this.chunkNo = chunkNo;
         this.size = size;
@@ -58,5 +58,14 @@ public class Chunk {
     @Override
     public int hashCode() {
         return Objects.hash(filehash, chunkNo);
+    }
+
+    @Override
+    public String toString() {
+        return "Chunk{" +
+                "filehash='" + filehash + '\'' +
+                ", chunkNo=" + chunkNo +
+                ", size=" + size +
+                '}';
     }
 }
