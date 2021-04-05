@@ -16,6 +16,6 @@ public class RemovedProtocol implements Protocol {
     @Override
     public void start() {
         System.out.println(this.message);
-
+        peer.updateLocalChunkReplication(message.fileId, message.chunkNo);
     }
 }

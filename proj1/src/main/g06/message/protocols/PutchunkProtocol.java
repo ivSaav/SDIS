@@ -19,11 +19,11 @@ public class PutchunkProtocol implements Protocol {
 
     @Override
     public void start() {
-        Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length);
-        System.out.println(message.toString());
-        chunk.store(peer.getId(), message.body);
+        Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length, message.replicationDegree);
         peer.addStoredChunk(chunk);
+        System.out.println(message.toString());
         this.sendStorageResponse(message.fileId, message.chunkNo);
+        chunk.store(peer.getId(), message.body);
     }
 
     public void sendStorageResponse(String fileId, int chunkNo) {

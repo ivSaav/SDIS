@@ -203,9 +203,29 @@ public class Peer implements ClientPeerProtocol {
 
     public void addPerceivedReplication(int peer_id, String fileHash, int chunkNo) {
         FileDetails file = this.fileDetails.get(fileHash);
-        file.addChunkPeer(chunkNo, peer_id);
+        if (file != null)
+            file.addChunkPeer(chunkNo, peer_id);
+
+        Chunk chunk = this.getFileChunk(fileHash, chunkNo);
+        if (chunk != null) {
+            chunk.addPerceivedRepDegree(); // add perceived degree if chunk exists
+        }
+
+        System.out.println("After " + this.storedChunks);
     }
 
+    public void updateLocalChunkReplication(String fileHash, int chunkNo) { // for REMOVED messages
+
+        Chunk chunk = this.getFileChunk(fileHash, chunkNo);
+        if (chunk != null) { // decremented the requested chunk's replication degree
+            chunk.removePerceivedRepDegree(); // decrement perceived chunk replication
+
+            if (chunk.getPerceivedRepDegree() < chunk.getDesiredRepDegree()) {
+                // TODO backup shenanigans
+                System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            }
+        }
+    }
     // TODO: Do synchronized stuff
     public void addStoredChunk(Chunk chunk) {
         Set<Chunk> fileChunks = this.storedChunks.computeIfAbsent(
@@ -215,7 +235,19 @@ public class Peer implements ClientPeerProtocol {
 
         this.disk_usage += chunk.getSize() / 1000; // update current disk space usage
 
+        chunk.addPerceivedRepDegree(); //add chunk perceived replication degree
         fileChunks.add(chunk);
+    }
+
+    public Chunk getFileChunk(String fileHash, int chunkNo) {
+        //find chunk in stored chunks list
+        Set<Chunk> fileChunks = this.storedChunks.get(fileHash);
+        Chunk chunk = null;
+        for (Chunk c : fileChunks)
+            if (c.getChunkNo() == chunkNo)
+                chunk = c;
+
+        return chunk;
     }
 
     public void removeFile(String filename) {

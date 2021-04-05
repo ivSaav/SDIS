@@ -7,11 +7,15 @@ public class Chunk {
     private final String filehash;
     private final int chunkNo;
     private final int size;
+    private final int desiredRepDegree;
+    private int perceivedRepDegree;
 
-    public Chunk(String filehash, int chunkNo, int size) {
+    public Chunk(String filehash, int chunkNo, int size, int desiredRepDegree) {
         this.filehash = filehash;
         this.chunkNo = chunkNo;
         this.size = size;
+        this.desiredRepDegree = desiredRepDegree;
+        this.perceivedRepDegree = 0;
     }
 
 
@@ -19,6 +23,22 @@ public class Chunk {
     public String getFilehash() { return filehash; }
     public int getChunkNo() { return this.chunkNo; }
     public int getSize() { return this.size; }
+
+    public int getDesiredRepDegree() {
+        return desiredRepDegree;
+    }
+
+    public int getPerceivedRepDegree() {
+        return perceivedRepDegree;
+    }
+
+    public void addPerceivedRepDegree() {
+        this.perceivedRepDegree += 1;
+    }
+
+    public void removePerceivedRepDegree() {
+        this.perceivedRepDegree -= 1;
+    }
 
     public void store(int peerId, byte[] contents) {
 
@@ -66,6 +86,8 @@ public class Chunk {
                 "filehash='" + filehash + '\'' +
                 ", chunkNo=" + chunkNo +
                 ", size=" + size +
+                ", desiredRepDegree=" + desiredRepDegree +
+                ", perceivedRepDegree=" + perceivedRepDegree +
                 '}';
     }
 }
