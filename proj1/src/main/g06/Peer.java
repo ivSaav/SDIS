@@ -5,7 +5,6 @@ import main.g06.message.MessageType;
 
 import java.io.*;
 import java.rmi.AlreadyBoundException;
-import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
@@ -24,6 +23,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
     private final MulticastChannel backupChannel;
     private final MulticastChannel controlChannel;
+
+    private final PeerBackup peerBackup;
 
     public Peer(String version, int id, String MC, String MDB, String MDR) {
         this.id = id;
@@ -48,6 +49,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
         String mdrAddr = vals[0];
         int mdrPort = Integer.parseInt(vals[1]);
 
+        this.peerBackup = new PeerBackup(this);
+
         // TODO: Use custom ThreadPoolExecutor to maximize performance
         this.backupChannel = new MulticastChannel(this, mdbAddr, mdbPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
         this.controlChannel = new MulticastChannel(this, mcAddr, mcPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
@@ -69,6 +72,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
             FileDetails fd = new FileDetails(fileHash, file.length(), repDegree);
             this.fileHashes.put(path, fd);
             this.fileDetails.put(fileHash, fd);
+
+            peerBackup.saveState(); //backup current peer information
 
             FileInputStream fstream = new FileInputStream(file);
             byte[] chunk_data = new byte[Definitions.CHUNK_SIZE];
@@ -120,6 +125,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
             //remove all data regarding this file
             this.removeFile(file);
+
+            this.backupState(); //backup current data
 
             return "success";
         }
@@ -179,7 +186,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public void addPerceivedReplication(int peer_id, String fileHash, int chunkNo) {
         FileDetails file = this.fileDetails.get(fileHash);
         file.addChunkPeer(chunkNo, peer_id);
-        this.backupData();
     }
 
     // TODO: Do synchronized stuff
@@ -191,27 +197,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
         fileChunks.add(chunk);
     }
 
-    // TODO create thread to perform this operation
-    public void backupData() {
-        try {
-            String filename = Definitions.STORAGE_DIR + File.separator + this.id + File.separator + "backup.ser";
-            File file = new File(filename);
-
-            if (!file.exists()) {
-                file.getParentFile().mkdirs();
-                file.createNewFile();
-            }
-
-            FileOutputStream fstream = new FileOutputStream(filename);
-            ObjectOutputStream oos = new ObjectOutputStream(fstream);
-
-            oos.writeObject(this);
-            oos.flush();
-            oos.close();
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
+    public void backupState() {
+        this.peerBackup.saveState();
     }
 
     public void recoverData() {
@@ -228,7 +215,10 @@ public class Peer implements ClientPeerProtocol, Serializable {
             ObjectInputStream ois = new ObjectInputStream(fstream);
             Peer previous_version = (Peer) ois.readObject(); // reading object from serialized file
 
-            // recovering missing data
+            ois.close();
+            fstream.close();
+
+            // copying backed data
             this.storedChunks = previous_version.storedChunks;
             this.fileHashes = previous_version.fileHashes;
             this.fileDetails = previous_version.fileDetails;
@@ -268,8 +258,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
     }
     @Serial
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
-        this.fileHashes = (Map<String, FileDetails>) in.readObject();
-        this.fileDetails = (Map<String, FileDetails>) in.readObject();
-        this.storedChunks = (Map<String, Set<Chunk>>) in.readObject();
+        this.fileHashes = (HashMap<String, FileDetails>) in.readObject();
+        this.fileDetails = (HashMap<String, FileDetails>) in.readObject();
+        this.storedChunks = (HashMap<String, Set<Chunk>>) in.readObject();
     }
 }

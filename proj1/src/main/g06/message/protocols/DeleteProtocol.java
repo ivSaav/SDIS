@@ -20,6 +20,7 @@ public class DeleteProtocol implements Protocol {
     public void start() {
         System.out.printf("DELETE from: %d ; fileID: %s\n", message.senderId, message.fileId);
         this.removeFileFromStorage(message.fileId);
+        peer.backupState();
     }
 
     private void removeFileFromStorage(String fileHash){

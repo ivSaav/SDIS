@@ -1,9 +1,8 @@
 package main.g06;
 
+
 import java.io.*;
-import java.util.ArrayList;
 import java.util.Objects;
-import java.util.Set;
 
 public class Chunk implements Serializable {
     private String filehash;
