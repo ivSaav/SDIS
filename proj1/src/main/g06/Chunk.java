@@ -60,11 +60,11 @@ public class Chunk implements Serializable {
     public byte[] retrieve(int peerId) {
         // fetch backed up chunk
         String filename = "storage" + File.separator + peerId + File.separator + this.filehash + "_" + this.chunkNo;
-        byte[] body = new byte[0];
+        byte[] body = new byte[this.size];
         File file = new File(filename);
         try {
             FileInputStream fstream = new FileInputStream(file);
-            int num_read = fstream.read(body,0,this.size);
+            int num_read = fstream.read(body);
             fstream.close();
         } catch (FileNotFoundException e) {
             System.out.println("Couldn't locate file (retrieve)");

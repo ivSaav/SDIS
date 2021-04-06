@@ -1,5 +1,7 @@
 package main.g06;
 
+import main.g06.message.ChunkMonitor;
+
 import java.io.IOException;
 import java.io.Serial;
 import java.io.Serializable;
@@ -15,12 +17,15 @@ public class FileDetails implements Serializable {
 
     private Map<Integer, Chunk> chunks;
 
+    private Map<Integer, ChunkMonitor> chunkMonitors;
+
     public FileDetails(String hash, long size, int desiredRepDegree) {
         this.hash = hash;
         this.size = size;
         this.desiredRepDegree = desiredRepDegree;
 
         this.chunks = new ConcurrentHashMap<>();
+        this.chunkMonitors = new ConcurrentHashMap<>();
     }
 
     public String getHash() {
@@ -56,6 +61,24 @@ public class FileDetails implements Serializable {
 
     public void addChunkReplication(int chunkNo, int peerId) {
         chunks.get(chunkNo).addReplication(peerId);
+    }
+
+    public void clearMonitors() {
+        this.chunkMonitors.clear();
+    }
+
+    public void removeMonitor(int chunkNo) {
+        this.chunkMonitors.remove(chunkNo);
+    }
+
+    public ChunkMonitor addMonitor(int chunkNo) {
+        ChunkMonitor cm = new ChunkMonitor();
+        this.chunkMonitors.put(chunkNo, cm);
+        return cm;
+    }
+
+    public ChunkMonitor getMonitor(int chunkNo) {
+        return this.chunkMonitors.get(chunkNo);
     }
 
     @Override
@@ -97,5 +120,6 @@ public class FileDetails implements Serializable {
         this.size = in.readLong();
         this.desiredRepDegree = in.readInt();
         this.chunks = (ConcurrentHashMap<Integer, Chunk>) in.readObject();
+        this.chunkMonitors = new ConcurrentHashMap<>();
     }
 }

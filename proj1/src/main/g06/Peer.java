@@ -1,10 +1,12 @@
 package main.g06;
 
+import main.g06.message.ChunkMonitor;
 import main.g06.message.Message;
 import main.g06.message.MessageType;
 
 import java.io.*;
 import java.rmi.AlreadyBoundException;
+import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
@@ -14,6 +16,8 @@ import java.util.concurrent.*;
 
 public class Peer implements ClientPeerProtocol, Serializable {
 
+    private static final String restoreDirectory = "restored" + File.separator;
+
     private final int id;
     private final String version;
     private int disk_usage; //disk usage in KBytes
@@ -22,6 +26,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     private Map<String, FileDetails> storedFiles; // filehash --> Chunks
 
     private final MulticastChannel backupChannel;
+    private final MulticastChannel restoreChannel;
     private final MulticastChannel controlChannel;
 
     private boolean hasChanges; //if current state is saved or not
@@ -51,6 +56,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         // TODO: Use custom ThreadPoolExecutor to maximize performance
         this.backupChannel = new MulticastChannel(this, mdbAddr, mdbPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
         this.controlChannel = new MulticastChannel(this, mcAddr, mcPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
+        this.restoreChannel = new MulticastChannel(this, mcAddr, mcPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
 
         this.hasChanges = false;
     }
@@ -166,6 +172,67 @@ public class Peer implements ClientPeerProtocol, Serializable {
         return "success";
     }
 
+    @Override
+    public String restore(String file) throws RemoteException {
+        // checking if this peer was the initiator for file backup
+        if (this.filenameHashes.containsKey(file)) {
+
+            String hash = this.filenameHashes.get(file);
+            // send delete message to other peers
+            FileDetails fileInfo = initiatedFiles.get(hash);
+
+            File restored = new File(restoreDirectory + file);
+            FileOutputStream fstream;
+            restored.getParentFile().mkdirs();
+
+            try {
+                restored.createNewFile();
+                fstream = new FileOutputStream(restored);
+
+                byte[] message;
+                boolean lastChunk = false;
+                int chunkNo = 0;
+                while (!lastChunk) {
+                    ChunkMonitor cm = fileInfo.addMonitor(chunkNo);
+                    message = Message.createMessage(this.version, MessageType.GETCHUNK, this.id, fileInfo.getHash(), chunkNo);
+
+                    int i;
+                    for (i = 0; i < 3; i++) {  // 3 retries per chunk
+                        // send GETCHUNK message to other peers
+                        controlChannel.multicast(message, message.length);
+                        System.out.printf("RESTORE %s %d\n", file, chunkNo);
+
+                        if (!cm.await_receive())
+                            continue;
+
+                        fileInfo.removeMonitor(chunkNo);
+
+                        fstream.write(cm.getData());
+
+                        if (cm.getData().length != Definitions.CHUNK_SIZE)
+                            lastChunk = true;
+                        break;
+                    }
+
+                    if (i >= 3) {
+                        fstream.close();
+                        return "failure";
+                    }
+
+                    chunkNo++;
+                }
+
+                fstream.close();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                return "failure";
+            }
+        }
+
+        return "success";
+    }
+
     public static void main(String[] args) throws IOException{
 
         if (args.length < 1) {
@@ -204,47 +271,35 @@ public class Peer implements ClientPeerProtocol, Serializable {
         scheduler.scheduleAtFixedRate(recovery, 15, 30, TimeUnit.SECONDS);
     }
 
-    public String getVersion() {
-        return version;
-    }
+    public String getVersion() { return version; }
 
-    public MulticastChannel getBackupChannel() {
-        return backupChannel;
-    }
+    public MulticastChannel getBackupChannel() { return backupChannel; }
 
-    public MulticastChannel getControlChannel() {
-        return controlChannel;
-    }
+    public MulticastChannel getControlChannel() { return controlChannel; }
 
-    public int getId() {
-        return id;
-    }
+    public MulticastChannel getRestoreChannel() { return restoreChannel; }
 
-    public Map<String, FileDetails> getStoredFiles() {
-        return storedFiles;
-    }
+    public int getId() { return id; }
 
-    public void clearChangesFlag() {
-        this.hasChanges = false;
-    }
+    public Map<String, FileDetails> getStoredFiles() { return storedFiles; }
 
-    public boolean hasChanges() {
-        return hasChanges;
-    }
+    public void clearChangesFlag() { this.hasChanges = false; }
 
-    public void setChangesFlag() {
-        this.hasChanges = true;
+    public boolean hasChanges() { return hasChanges; }
+
+    public void setChangesFlag() { this.hasChanges = true; }
+
+    public FileDetails getFileDetails(String fileHash) {
+        FileDetails fileDetails = this.initiatedFiles.get(fileHash);
+        if (fileDetails != null)
+            return fileDetails;
+        return this.storedFiles.get(fileHash);
     }
 
     public void addPerceivedReplication(int peerId, String fileHash, int chunkNo) {
-
-        // for files initiated by this peer
-        if (this.initiatedFiles.containsKey(fileHash))
-            this.initiatedFiles.get(fileHash).addChunkReplication(chunkNo, peerId);
-
-        // for file stored by this peer
-        if (this.storedFiles.containsKey(fileHash))
-            this.storedFiles.get(fileHash).addChunkReplication(chunkNo, peerId);
+        FileDetails fileDetails = getFileDetails(fileHash);
+        if (fileDetails != null)
+            fileDetails.addChunkReplication(chunkNo, peerId);
     }
 
 
