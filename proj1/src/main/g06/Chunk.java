@@ -59,6 +59,24 @@ public class Chunk {
         }
     }
 
+    public byte[] retrieve(int peerId) {
+        // fetch backed up chunk
+        String filename = "storage" + File.separator + peerId + File.separator + this.filehash + "_" + this.chunkNo;
+        byte[] body = new byte[0];
+        File file = new File(filename);
+        try {
+            FileInputStream fstream = new FileInputStream(file);
+            int num_read = fstream.read(body,0,this.size);
+            fstream.close();
+        } catch (FileNotFoundException e) {
+            System.out.println("Couldn't locate file (retrieve)");
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return body;
+    }
+
     public boolean removeStorage(int peerId) {
         String filename = this.filehash + "_" + this.chunkNo;
         File file = new File("storage" + File.separator + peerId + File.separator + filename);

@@ -210,22 +210,9 @@ public class Peer implements ClientPeerProtocol {
         if (chunk != null) {
             chunk.addPerceivedRepDegree(); // add perceived degree if chunk exists
         }
-
-        System.out.println("After " + this.storedChunks);
     }
 
-    public void updateLocalChunkReplication(String fileHash, int chunkNo) { // for REMOVED messages
 
-        Chunk chunk = this.getFileChunk(fileHash, chunkNo);
-        if (chunk != null) { // decremented the requested chunk's replication degree
-            chunk.removePerceivedRepDegree(); // decrement perceived chunk replication
-
-            if (chunk.getPerceivedRepDegree() < chunk.getDesiredRepDegree()) {
-                // TODO backup shenanigans
-                System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-            }
-        }
-    }
     // TODO: Do synchronized stuff
     public void addStoredChunk(Chunk chunk) {
         Set<Chunk> fileChunks = this.storedChunks.computeIfAbsent(
