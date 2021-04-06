@@ -29,11 +29,18 @@ public class MessageThread extends Thread {
 
     @Override
     public void run() {
+        System.out.println("Hello");
         if (!parsePacket())
             return;
 
-        // Choose and build message
-        protocol = ProtocolBuilder.build(peer, message);
-        protocol.start();
+        try {
+            // Choose and build message
+            protocol = ProtocolBuilder.build(peer, message);
+            protocol.start();
+        }
+        catch (Exception e) {
+            System.out.println("AOSINSIOASID");
+            e.printStackTrace();
+        }
     }
 }

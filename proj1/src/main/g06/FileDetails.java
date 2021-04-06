@@ -10,20 +10,14 @@ public class FileDetails implements Serializable {
     private long size;
     private int desiredRepDegree;
 
-    private List<List<Integer>> chunks;
+    private Map<Integer, Chunk> chunks;
 
     public FileDetails(String hash, long size, int desiredRepDegree) {
         this.hash = hash;
         this.size = size;
         this.desiredRepDegree = desiredRepDegree;
 
-        this.chunks = new ArrayList<>();
-
-        // number of chunks necessary to backup this file
-        int num_chunks = (int) Math.floor( (double) size / (double) Definitions.CHUNK_SIZE) + 1;
-        for (int i = 0; i < num_chunks; i++) {
-            this.chunks.add(new ArrayList<>());
-        }
+        this.chunks = new HashMap<>();
     }
 
     public String getHash() {
@@ -34,24 +28,32 @@ public class FileDetails implements Serializable {
         return size;
     }
 
-    public int getDesiredRepDegree() {
+    public synchronized void addChunk(Chunk chunk) {
+        this.chunks.put(chunk.getChunkNo(), chunk);
+    }
+
+   public synchronized void removeChunk(int chunkNo) {
+       this.chunks.remove(chunkNo);
+   }
+
+    public int getDesiredReplication() {
         return desiredRepDegree;
     }
 
-    public List<List<Integer>> getChunks() {
-        return chunks;
+    public synchronized List<Chunk> getChunks() {
+        return (List<Chunk>) chunks.values();
     }
 
-    public int getChunkPerceivedRepDegree(int chunkNo) {
-        return chunks.get(chunkNo).size();
+    public synchronized Chunk getChunk(int chunkNo) {
+        return this.chunks.get(chunkNo);
     }
 
-    public boolean addChunkPeer(int chunkNo, int peerId) {
-        return chunks.get(chunkNo).add(peerId);
+    public synchronized int getChunkReplication(int chunkNo) {
+        return chunks.get(chunkNo).getPerceivedReplication();
     }
 
-    public void resetChunkOwners(int chunkNo) {
-        chunks.get(chunkNo).clear();
+    public synchronized void addChunkReplication(int chunkNo, int peerId) {
+        chunks.get(chunkNo).addReplication(peerId);
     }
 
     @Override
@@ -71,7 +73,7 @@ public class FileDetails implements Serializable {
     @Override
     public String toString() {
         return "FileDetails{" +
-                "hash='" + hash + '\'' +
+                "hash='" + hash.substring(0,5) + '\'' +
                 ", size=" + size +
                 ", desiredRepDegree=" + desiredRepDegree +
                 ", chunks=" + chunks +
@@ -92,6 +94,6 @@ public class FileDetails implements Serializable {
         this.hash = in.readUTF();
         this.size = in.readLong();
         this.desiredRepDegree = in.readInt();
-        this.chunks = (List<List<Integer>>) in.readObject();
+        this.chunks = (Map<Integer, Chunk>) in.readObject();
     }
 }

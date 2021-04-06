@@ -5,6 +5,7 @@ import main.g06.Peer;
 import main.g06.message.Message;
 import main.g06.message.MessageType;
 
+import java.util.Arrays;
 import java.util.Random;
 
 public class PutchunkProtocol implements Protocol {
@@ -19,15 +20,16 @@ public class PutchunkProtocol implements Protocol {
 
     @Override
     public void start() {
-        Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length, message.replicationDegree);
-        peer.addStoredChunk(chunk);
         System.out.println(message.toString());
-        this.sendStorageResponse(message.fileId, message.chunkNo);
+        Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length);
+        peer.addStoredChunk(chunk, message.replicationDegree);
         chunk.store(peer.getId(), message.body);
+        this.sendStorageResponse(message.fileId, message.chunkNo);
         peer.setChangesFlag();
     }
 
-    public void sendStorageResponse(String fileId, int chunkNo) {
+    public synchronized void sendStorageResponse(String fileId, int chunkNo) {
+        System.out.println(fileId + " " + chunkNo);
         byte[] message = Message.createMessage(peer.getVersion(), MessageType.STORED, peer.getId(), fileId, chunkNo);
         Random rand = new Random();
         int time = rand.nextInt(400);

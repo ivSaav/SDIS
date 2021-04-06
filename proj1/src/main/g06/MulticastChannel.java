@@ -33,9 +33,9 @@ public class MulticastChannel extends Thread {
             InetAddress address = InetAddress.getByName(this.group);
             socket.joinGroup(address);
 
-            byte[] buffer = new byte[BUFFER_MAX_SIZE];
-            
             while (true) {
+                byte[] buffer = new byte[BUFFER_MAX_SIZE];
+
                 if (this.isInterrupted()) {
                     poolExecutor.shutdown();
                     return;
@@ -53,7 +53,7 @@ public class MulticastChannel extends Thread {
         }
     }
 
-    public void multicast(byte[] message, int size) {
+    public synchronized void multicast(byte[] message, int size) {
 
         try {
             DatagramSocket socket = new DatagramSocket();

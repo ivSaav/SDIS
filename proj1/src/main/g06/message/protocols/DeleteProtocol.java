@@ -4,6 +4,7 @@ import main.g06.Chunk;
 import main.g06.Peer;
 import main.g06.message.Message;
 
+import java.util.List;
 import java.util.Set;
 
 public class DeleteProtocol implements Protocol {
@@ -23,8 +24,8 @@ public class DeleteProtocol implements Protocol {
     }
 
     private void removeFileFromStorage(String fileHash){
-        if (peer.getStoredChunks().containsKey(fileHash)){
-            Set<Chunk> chunks = peer.getStoredChunks().get(fileHash);
+        if (peer.getStoredFiles().containsKey(fileHash)){
+            List<Chunk> chunks = peer.getStoredFiles().get(fileHash).getChunks();
 
             chunks.removeIf(chunk -> chunk.removeStorage(peer.getId())); // remove chunk from fileHash List
 

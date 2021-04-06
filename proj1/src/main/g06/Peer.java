@@ -20,9 +20,9 @@ public class Peer implements ClientPeerProtocol, Serializable {
     private final int id;
     private final String version;
     private int disk_usage; //disk usage in KBytes
-    private Map<String, FileDetails> fileHashes; // filename --> FileDetail
-    private Map<String, FileDetails> fileDetails; // filehash --> FileDetail
-    private Map<String, Set<Chunk>> storedChunks; // filehash --> Chunks
+    private Map<String, String> filenameHashes; // filename --> fileHash
+    private Map<String, FileDetails> initiatedFiles; // filehash --> FileDetail
+    private Map<String, FileDetails> storedFiles; // filehash --> Chunks
 
     private final MulticastChannel backupChannel;
     private final MulticastChannel controlChannel;
@@ -34,9 +34,9 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.version = version;
         this.disk_usage = 0;
         // TODO: Reload this data from disk
-        this.fileHashes = new HashMap<>();
-        this.fileDetails = new HashMap<>();
-        this.storedChunks = new HashMap<>();
+        this.filenameHashes = new HashMap<>();
+        this.initiatedFiles = new HashMap<>();
+        this.storedFiles = new HashMap<>();
 
         String[] vals = MC.split(":"); //MC
 
@@ -72,8 +72,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
             // Save filename and its generated hash
             // TODO: Write to file in case peer crashes we must resume this operation
             FileDetails fd = new FileDetails(fileHash, file.length(), repDegree);
-            this.fileHashes.put(path, fd);
-            this.fileDetails.put(fileHash, fd);
+            this.filenameHashes.put(path, fileHash);
+            this.initiatedFiles.put(fileHash, fd);
 
             this.hasChanges = true; // flag for peer backup
 
@@ -88,6 +88,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
                         Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, chunk_data)
                         : Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, Arrays.copyOfRange(chunk_data, 0, num_read));
                 backupChannel.multicast(message, message.length);
+
+                fd.addChunk(new Chunk(fileHash, chunkNo, num_read));
                 System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
 
                 // TODO: Repeat message N times if rep degree was not reached
@@ -97,6 +99,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
                 chunkNo++;
             }
 
+            System.out.println(this.initiatedFiles);
             // Case of last chunk being size 0
             if (last_num_read == Definitions.CHUNK_SIZE) {
                 byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, new byte[] {});
@@ -118,9 +121,11 @@ public class Peer implements ClientPeerProtocol, Serializable {
     @Override
     public String delete(String file) {
         // checking if this peer was the initiator for file backup
-        if (this.fileHashes.containsKey(file)) {
+        if (this.filenameHashes.containsKey(file)) {
+
+            String hash = this.filenameHashes.get(file);
             // send delete message to other peers
-            FileDetails fileInfo = fileHashes.get(file);
+            FileDetails fileInfo = initiatedFiles.get(hash);
             byte[] message = Message.createMessage(this.version, MessageType.DELETE, this.id, fileInfo.getHash());
             controlChannel.multicast(message, message.length);
             System.out.printf("DELETE %s\n", file);
@@ -139,23 +144,27 @@ public class Peer implements ClientPeerProtocol, Serializable {
     @Override
     public String reclaim(int new_capacity) {
 
-        List<Chunk> stored = new ArrayList<>();
-        for (Set<Chunk> chunks : this.storedChunks.values())
-            stored.addAll(chunks);
+        List<FileDetails> stored = (List<FileDetails>) this.storedFiles.values();
 
-        System.out.println(this.storedChunks);
+        System.out.println(this.storedFiles);
 
         while (this.disk_usage > new_capacity) {
-            Chunk curr = stored.remove(0); // process first
-            this.disk_usage -= curr.getSize() / 1000;
+            FileDetails file = stored.remove(0); // process first
 
-            curr.removeStorage(this.id);
+            for (Chunk chunk : file.getChunks()) {
+                this.disk_usage -= chunk.getSize() / 1000;
 
-            // TODO: remove this chunk from the stored chunks
+                file.removeChunk(chunk.getChunkNo()); // remove chunk from file
+                chunk.removeStorage(this.id); // remove storage
 
-            byte[] message = Message.createMessage(this.version, MessageType.REMOVED, this.id, curr.getFilehash(), curr.getChunkNo());
-            controlChannel.multicast(message, message.length);
-            this.setChangesFlag();
+                // TODO: remove this chunk from the stored chunks
+                byte[] message = Message.createMessage(this.version, MessageType.REMOVED, this.id, chunk.getFilehash(), chunk.getChunkNo());
+                controlChannel.multicast(message, message.length);
+                this.setChangesFlag();
+
+                if (this.disk_usage <= new_capacity)
+                    return "success";
+            }
         }
 
         return "success";
@@ -213,8 +222,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
         return id;
     }
 
-    public Map<String, Set<Chunk>> getStoredChunks() {
-        return storedChunks;
+    public Map<String, FileDetails> getStoredFiles() {
+        return storedFiles;
     }
 
     public void clearChangesFlag() {
@@ -229,63 +238,53 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.hasChanges = true;
     }
 
-    public void addPerceivedReplication(int peer_id, String fileHash, int chunkNo) {
-        FileDetails file = this.fileDetails.get(fileHash);
-        if (file != null)
-            file.addChunkPeer(chunkNo, peer_id);
+    public synchronized void addPerceivedReplication(int peerId, String fileHash, int chunkNo) {
 
-        Chunk chunk = this.getFileChunk(fileHash, chunkNo);
-        if (chunk != null) {
-            chunk.addPerceivedRepDegree(); // add perceived degree if chunk exists
-        }
+        // for files initiated by this peer
+        if (this.initiatedFiles.containsKey(fileHash))
+            this.initiatedFiles.get(fileHash).addChunkReplication(chunkNo, peerId);
 
-        System.out.println("OLHA RECEBI: " + chunk);
+        // for file stored by this peer
+        if (this.storedFiles.containsKey(fileHash))
+            this.storedFiles.get(fileHash).addChunkReplication(chunkNo, peerId);
     }
 
 
     // TODO: Do synchronized stuff
-    public void addStoredChunk(Chunk chunk) {
-        Set<Chunk> fileChunks = this.storedChunks.computeIfAbsent(
-                chunk.getFilehash(),
-                l -> new HashSet<>()
-        );
-
+    public synchronized void addStoredChunk(Chunk chunk, int desiredReplication) {
+        FileDetails file = this.storedFiles.computeIfAbsent(chunk.getFilehash(), v -> new FileDetails(chunk.getFilehash(),0, desiredReplication));
         this.disk_usage += chunk.getSize() / 1000; // update current disk space usage
-
-        chunk.addPerceivedRepDegree(); //add chunk perceived replication degree
-        System.out.println("STD " + chunk);
-        fileChunks.add(chunk);
+        file.addChunk(chunk);
+        System.out.println("ADD stored chunk " + file);
     }
 
-    public Chunk getFileChunk(String fileHash, int chunkNo) {
+    public synchronized Chunk getFileChunk(String fileHash, int chunkNo) {
         //find chunk in stored chunks list
-        Set<Chunk> fileChunks = this.storedChunks.get(fileHash);
-        Chunk chunk = null;
-        for (Chunk c : fileChunks)
-            if (c.getChunkNo() == chunkNo)
-                chunk = c;
+        FileDetails file = this.storedFiles.get(fileHash);
 
-        return chunk;
+        return file.getChunk(chunkNo);
+    }
+
+    public synchronized int getFileReplication(String fileHash) {
+        return this.storedFiles.get(fileHash).getDesiredReplication();
     }
 
     public void restoreState(Peer previous) {
-        this.storedChunks = previous.storedChunks;
-        this.fileDetails = previous.fileDetails;
-        this.fileHashes = previous.fileHashes;
-
-        System.out.println(this);
+        this.storedFiles = previous.storedFiles;
+        this.initiatedFiles = previous.initiatedFiles;
+        this.filenameHashes = previous.filenameHashes;
     }
 
     public void removeInitiatedFile(String filename) {
-        String hash = this.fileHashes.get(filename).getHash();
+        String hash = this.filenameHashes.get(filename);
 
-        this.fileDetails.remove(hash);
+        this.initiatedFiles.remove(hash);
 //        this.storedChunks.remove(filename);
-        this.fileHashes.remove(filename);
+        this.filenameHashes.remove(filename);
     }
 
     public void removeStoredFile(String hash) {
-        this.storedChunks.remove(hash);
+        this.storedFiles.remove(hash);
     }
 
     @Override
@@ -293,9 +292,9 @@ public class Peer implements ClientPeerProtocol, Serializable {
         return "Peer{" +
                 "id=" + id +
                 ", version='" + version + '\'' +
-                ", fileHashes=" + fileHashes +
-                ", fileDetails=" + fileDetails +
-                ", storedChunks=" + storedChunks +
+                ", fileHashes=" + filenameHashes +
+                ", fileDetails=" + initiatedFiles +
+                ", storedChunks=" + storedFiles +
                 ", backupChannel=" + backupChannel +
                 ", controlChannel=" + controlChannel +
                 '}';
@@ -303,16 +302,16 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
     @Serial
     private void writeObject(java.io.ObjectOutputStream out) throws IOException {
-        out.writeObject(this.fileHashes);
-        out.writeObject(this.fileDetails);
-        out.writeObject(this.storedChunks);
+        out.writeObject(this.filenameHashes);
+        out.writeObject(this.initiatedFiles);
+        out.writeObject(this.storedFiles);
     }
 
     @Serial
     @SuppressWarnings("unchecked")
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
-        this.fileHashes = (HashMap<String, FileDetails>) in.readObject();
-        this.fileDetails = (HashMap<String, FileDetails>) in.readObject();
-        this.storedChunks = (HashMap<String, Set<Chunk>>) in.readObject();
+        this.filenameHashes = (HashMap<String, String>) in.readObject();
+        this.initiatedFiles = (HashMap<String, FileDetails>) in.readObject();
+        this.storedFiles = (HashMap<String, FileDetails>) in.readObject();
     }
 }
