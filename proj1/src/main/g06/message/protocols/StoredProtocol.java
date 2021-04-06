@@ -18,6 +18,6 @@ public class StoredProtocol implements Protocol {
     public void start() {
         System.out.printf("STORED from: %d  chunkNo: %d \n", message.senderId, message.chunkNo);
         peer.addPerceivedReplication(message.senderId, message.fileId, message.chunkNo);
-        peer.backupState();
+        peer.setChangesFlag();
     }
 }

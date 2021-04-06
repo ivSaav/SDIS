@@ -10,7 +10,7 @@ public class FileDetails implements Serializable {
     private long size;
     private int desiredRepDegree;
 
-    private List<Set<Integer>> chunks;
+    private List<List<Integer>> chunks;
 
     public FileDetails(String hash, long size, int desiredRepDegree) {
         this.hash = hash;
@@ -22,7 +22,7 @@ public class FileDetails implements Serializable {
         // number of chunks necessary to backup this file
         int num_chunks = (int) Math.floor( (double) size / (double) Definitions.CHUNK_SIZE) + 1;
         for (int i = 0; i < num_chunks; i++) {
-            this.chunks.add(new HashSet<>());
+            this.chunks.add(new ArrayList<>());
         }
     }
 
@@ -36,6 +36,10 @@ public class FileDetails implements Serializable {
 
     public int getDesiredRepDegree() {
         return desiredRepDegree;
+    }
+
+    public List<List<Integer>> getChunks() {
+        return chunks;
     }
 
     public int getChunkPerceivedRepDegree(int chunkNo) {
@@ -81,11 +85,13 @@ public class FileDetails implements Serializable {
         out.writeInt(this.desiredRepDegree);
         out.writeObject(this.chunks);
     }
+
     @Serial
+    @SuppressWarnings("unchecked")
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
         this.hash = in.readUTF();
         this.size = in.readLong();
         this.desiredRepDegree = in.readInt();
-        this.chunks = (List<Set<Integer>>) in.readObject();
+        this.chunks = (List<List<Integer>>) in.readObject();
     }
 }

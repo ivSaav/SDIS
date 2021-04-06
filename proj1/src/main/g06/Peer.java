@@ -10,7 +10,9 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 
 public class Peer implements ClientPeerProtocol, Serializable {
@@ -24,7 +26,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     private final MulticastChannel backupChannel;
     private final MulticastChannel controlChannel;
 
-    private final PeerBackup peerBackup;
+    private boolean hasChanges; //if current state is saved or not
 
     public Peer(String version, int id, String MC, String MDB, String MDR) {
         this.id = id;
@@ -32,9 +34,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.fileHashes = new HashMap<>();
         this.fileDetails = new HashMap<>();
         this.storedChunks = new HashMap<>();
-
-        // checking if there is a backed up version of this peer
-        this.recoverData();
 
         String[] vals = MC.split(":"); //MC
 
@@ -49,11 +48,11 @@ public class Peer implements ClientPeerProtocol, Serializable {
         String mdrAddr = vals[0];
         int mdrPort = Integer.parseInt(vals[1]);
 
-        this.peerBackup = new PeerBackup(this);
-
         // TODO: Use custom ThreadPoolExecutor to maximize performance
         this.backupChannel = new MulticastChannel(this, mdbAddr, mdbPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
         this.controlChannel = new MulticastChannel(this, mcAddr, mcPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
+
+        this.hasChanges = false;
     }
 
     @Override
@@ -73,7 +72,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
             this.fileHashes.put(path, fd);
             this.fileDetails.put(fileHash, fd);
 
-            peerBackup.saveState(); //backup current peer information
+            this.hasChanges = true; // flag for peer backup
 
             FileInputStream fstream = new FileInputStream(file);
             byte[] chunk_data = new byte[Definitions.CHUNK_SIZE];
@@ -126,8 +125,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
             //remove all data regarding this file
             this.removeFile(file);
 
-            this.backupState(); //backup current data
-
+            this.hasChanges = true; // flag for peer backup
             return "success";
         }
         return "";
@@ -147,6 +145,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
         String MC = args[3], MDB = args[4], MDR = args[5];
 
         Peer peer = new Peer(version, id, MC, MDB, MDR);
+        PeerRecovery recovery = new PeerRecovery(peer); //recover previously saved peer data
+
         Registry registry = LocateRegistry.getRegistry();
         try {
             ClientPeerProtocol stub = (ClientPeerProtocol) UnicastRemoteObject.exportObject(peer,0);
@@ -161,6 +161,10 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
         peer.backupChannel.start();
         peer.controlChannel.start();
+
+        // save current peer state every 30 seconds
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(recovery, 15, 30, TimeUnit.SECONDS);
     }
 
     public String getVersion() {
@@ -183,6 +187,18 @@ public class Peer implements ClientPeerProtocol, Serializable {
         return storedChunks;
     }
 
+    public void clearChangesFlag() {
+        this.hasChanges = false;
+    }
+
+    public boolean hasChanges() {
+        return hasChanges;
+    }
+
+    public void setChangesFlag() {
+        this.hasChanges = true;
+    }
+
     public void addPerceivedReplication(int peer_id, String fileHash, int chunkNo) {
         FileDetails file = this.fileDetails.get(fileHash);
         file.addChunkPeer(chunkNo, peer_id);
@@ -197,35 +213,11 @@ public class Peer implements ClientPeerProtocol, Serializable {
         fileChunks.add(chunk);
     }
 
-    public void backupState() {
-        this.peerBackup.saveState();
-    }
+    public void restoreState(Peer previous) {
+        this.storedChunks = previous.storedChunks;
+        this.fileDetails = previous.fileDetails;
+        this.fileHashes = previous.fileHashes;
 
-    public void recoverData() {
-
-        String filename = Definitions.STORAGE_DIR + File.separator + this.id + File.separator + "backup.ser";
-        try {
-            File file = new File(filename);
-            if (!file.exists()) // didn't find a backed up version
-                return;
-            System.out.println("Recovering last saved state");
-
-            // fetch backed up data
-            FileInputStream fstream = new FileInputStream(file);
-            ObjectInputStream ois = new ObjectInputStream(fstream);
-            Peer previous_version = (Peer) ois.readObject(); // reading object from serialized file
-
-            ois.close();
-            fstream.close();
-
-            // copying backed data
-            this.storedChunks = previous_version.storedChunks;
-            this.fileHashes = previous_version.fileHashes;
-            this.fileDetails = previous_version.fileDetails;
-
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
         System.out.println(this);
     }
 
@@ -256,7 +248,9 @@ public class Peer implements ClientPeerProtocol, Serializable {
         out.writeObject(this.fileDetails);
         out.writeObject(this.storedChunks);
     }
+
     @Serial
+    @SuppressWarnings("unchecked")
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
         this.fileHashes = (HashMap<String, FileDetails>) in.readObject();
         this.fileDetails = (HashMap<String, FileDetails>) in.readObject();
