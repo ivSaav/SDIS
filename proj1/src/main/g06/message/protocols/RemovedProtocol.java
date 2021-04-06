@@ -22,6 +22,7 @@ public class RemovedProtocol implements Protocol {
     public void start() {
         System.out.println(this.message);
        this.updateLocalChunkReplication(message.fileId, message.chunkNo);
+       peer.setChangesFlag();
     }
 
     public void updateLocalChunkReplication(String fileHash, int chunkNo) { // for REMOVED messages
@@ -32,6 +33,7 @@ public class RemovedProtocol implements Protocol {
 
             if (chunk.getPerceivedRepDegree() < chunk.getDesiredRepDegree()) { //replication bellow desired level
 
+                System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA " + chunk.getPerceivedRepDegree());
                 Random rand = new Random();
                 int time = rand.nextInt(400);
                 try {

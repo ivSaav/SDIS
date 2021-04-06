@@ -24,6 +24,7 @@ public class PutchunkProtocol implements Protocol {
         System.out.println(message.toString());
         this.sendStorageResponse(message.fileId, message.chunkNo);
         chunk.store(peer.getId(), message.body);
+        peer.setChangesFlag();
     }
 
     public void sendStorageResponse(String fileId, int chunkNo) {

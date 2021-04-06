@@ -29,7 +29,8 @@ public class DeleteProtocol implements Protocol {
             chunks.removeIf(chunk -> chunk.removeStorage(peer.getId())); // remove chunk from fileHash List
 
             if (chunks.isEmpty()) // remove file entry from files hashmap
-                peer.removeFile(fileHash);
+                peer.removeStoredFile(fileHash);
+            peer.setChangesFlag();
         }
     }
 }
