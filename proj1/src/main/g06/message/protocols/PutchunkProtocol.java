@@ -28,8 +28,7 @@ public class PutchunkProtocol implements Protocol {
         peer.setChangesFlag();
     }
 
-    public synchronized void sendStorageResponse(String fileId, int chunkNo) {
-        System.out.println(fileId + " " + chunkNo);
+    public void sendStorageResponse(String fileId, int chunkNo) {
         byte[] message = Message.createMessage(peer.getVersion(), MessageType.STORED, peer.getId(), fileId, chunkNo);
         Random rand = new Random();
         int time = rand.nextInt(400);

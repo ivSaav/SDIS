@@ -3,7 +3,10 @@ package main.g06;
 import java.io.IOException;
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FileDetails implements Serializable {
     private String hash;
@@ -17,7 +20,7 @@ public class FileDetails implements Serializable {
         this.size = size;
         this.desiredRepDegree = desiredRepDegree;
 
-        this.chunks = new HashMap<>();
+        this.chunks = new ConcurrentHashMap<>();
     }
 
     public String getHash() {
@@ -28,31 +31,30 @@ public class FileDetails implements Serializable {
         return size;
     }
 
-    public synchronized void addChunk(Chunk chunk) {
+    public void addChunk(Chunk chunk) {
         this.chunks.put(chunk.getChunkNo(), chunk);
     }
 
-   public synchronized void removeChunk(int chunkNo) {
+   public void removeChunk(int chunkNo) {
        this.chunks.remove(chunkNo);
    }
 
     public int getDesiredReplication() {
         return desiredRepDegree;
     }
-
-    public synchronized List<Chunk> getChunks() {
-        return (List<Chunk>) chunks.values();
+    public Collection<Chunk> getChunks() {
+        return chunks.values();
     }
 
-    public synchronized Chunk getChunk(int chunkNo) {
+    public Chunk getChunk(int chunkNo) {
         return this.chunks.get(chunkNo);
     }
 
-    public synchronized int getChunkReplication(int chunkNo) {
+    public int getChunkReplication(int chunkNo) {
         return chunks.get(chunkNo).getPerceivedReplication();
     }
 
-    public synchronized void addChunkReplication(int chunkNo, int peerId) {
+    public void addChunkReplication(int chunkNo, int peerId) {
         chunks.get(chunkNo).addReplication(peerId);
     }
 
@@ -94,6 +96,6 @@ public class FileDetails implements Serializable {
         this.hash = in.readUTF();
         this.size = in.readLong();
         this.desiredRepDegree = in.readInt();
-        this.chunks = (Map<Integer, Chunk>) in.readObject();
+        this.chunks = (ConcurrentHashMap<Integer, Chunk>) in.readObject();
     }
 }

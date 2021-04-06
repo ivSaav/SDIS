@@ -29,7 +29,6 @@ public class MessageThread extends Thread {
 
     @Override
     public void run() {
-        System.out.println("Hello");
         if (!parsePacket())
             return;
 
@@ -39,7 +38,7 @@ public class MessageThread extends Thread {
             protocol.start();
         }
         catch (Exception e) {
-            System.out.println("AOSINSIOASID");
+            System.out.println("Encountered an error in MessageThread");
             e.printStackTrace();
         }
     }

@@ -53,7 +53,7 @@ public class MulticastChannel extends Thread {
         }
     }
 
-    public synchronized void multicast(byte[] message, int size) {
+    public void multicast(byte[] message, int size) {
 
         try {
             DatagramSocket socket = new DatagramSocket();

@@ -9,10 +9,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 
 public class Peer implements ClientPeerProtocol, Serializable {
@@ -34,9 +31,9 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.version = version;
         this.disk_usage = 0;
         // TODO: Reload this data from disk
-        this.filenameHashes = new HashMap<>();
-        this.initiatedFiles = new HashMap<>();
-        this.storedFiles = new HashMap<>();
+        this.filenameHashes = new ConcurrentHashMap<>();
+        this.initiatedFiles = new ConcurrentHashMap<>();
+        this.storedFiles = new ConcurrentHashMap<>();
 
         String[] vals = MC.split(":"); //MC
 
@@ -144,27 +141,26 @@ public class Peer implements ClientPeerProtocol, Serializable {
     @Override
     public String reclaim(int new_capacity) {
 
-        List<FileDetails> stored = (List<FileDetails>) this.storedFiles.values();
+        List<FileDetails> stored = new ArrayList<>(this.storedFiles.values());
 
         System.out.println(this.storedFiles);
 
         while (this.disk_usage > new_capacity) {
-            FileDetails file = stored.remove(0); // process first
+            FileDetails file = stored.get(0);
+                for (Chunk chunk : file.getChunks()) {
+                    this.disk_usage -= chunk.getSize() / 1000;
 
-            for (Chunk chunk : file.getChunks()) {
-                this.disk_usage -= chunk.getSize() / 1000;
+                    file.removeChunk(chunk.getChunkNo()); // remove chunk from file
+                    chunk.removeStorage(this.id); // remove storage
 
-                file.removeChunk(chunk.getChunkNo()); // remove chunk from file
-                chunk.removeStorage(this.id); // remove storage
+                    // TODO: remove this chunk from the stored chunks
+                    byte[] message = Message.createMessage(this.version, MessageType.REMOVED, this.id, chunk.getFilehash(), chunk.getChunkNo());
+                    controlChannel.multicast(message, message.length);
+                    this.setChangesFlag();
 
-                // TODO: remove this chunk from the stored chunks
-                byte[] message = Message.createMessage(this.version, MessageType.REMOVED, this.id, chunk.getFilehash(), chunk.getChunkNo());
-                controlChannel.multicast(message, message.length);
-                this.setChangesFlag();
-
-                if (this.disk_usage <= new_capacity)
-                    return "success";
-            }
+                    if (this.disk_usage <= new_capacity)
+                        return "success";
+                }
         }
 
         return "success";
@@ -185,6 +181,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
         Peer peer = new Peer(version, id, MC, MDB, MDR);
         PeerRecovery recovery = new PeerRecovery(peer); //recover previously saved peer data
+
+        System.out.println(peer);
 
         Registry registry = LocateRegistry.getRegistry();
         try {
@@ -238,7 +236,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.hasChanges = true;
     }
 
-    public synchronized void addPerceivedReplication(int peerId, String fileHash, int chunkNo) {
+    public void addPerceivedReplication(int peerId, String fileHash, int chunkNo) {
 
         // for files initiated by this peer
         if (this.initiatedFiles.containsKey(fileHash))
@@ -251,22 +249,32 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
 
     // TODO: Do synchronized stuff
-    public synchronized void addStoredChunk(Chunk chunk, int desiredReplication) {
+    public void addStoredChunk(Chunk chunk, int desiredReplication) {
         FileDetails file = this.storedFiles.computeIfAbsent(chunk.getFilehash(), v -> new FileDetails(chunk.getFilehash(),0, desiredReplication));
         this.disk_usage += chunk.getSize() / 1000; // update current disk space usage
         file.addChunk(chunk);
-        System.out.println("ADD stored chunk " + file);
     }
 
-    public synchronized Chunk getFileChunk(String fileHash, int chunkNo) {
+    public Chunk getFileChunk(String fileHash, int chunkNo) {
+
         //find chunk in stored chunks list
         FileDetails file = this.storedFiles.get(fileHash);
 
-        return file.getChunk(chunkNo);
+        if (file != null)
+            file = this.initiatedFiles.get(fileHash);
+
+
+        return file == null ? null : file.getChunk(chunkNo);
     }
 
-    public synchronized int getFileReplication(String fileHash) {
-        return this.storedFiles.get(fileHash).getDesiredReplication();
+    public int getFileReplication(String fileHash) {
+        //find chunk in stored chunks list
+        FileDetails file = this.storedFiles.get(fileHash);
+
+        if (file != null)
+            file = this.initiatedFiles.get(fileHash);
+
+        return file == null ? 0 : file.getDesiredReplication();
     }
 
     public void restoreState(Peer previous) {
@@ -310,8 +318,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
     @Serial
     @SuppressWarnings("unchecked")
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
-        this.filenameHashes = (HashMap<String, String>) in.readObject();
-        this.initiatedFiles = (HashMap<String, FileDetails>) in.readObject();
-        this.storedFiles = (HashMap<String, FileDetails>) in.readObject();
+        this.filenameHashes = (ConcurrentHashMap<String, String>) in.readObject();
+        this.initiatedFiles = (ConcurrentHashMap<String, FileDetails>) in.readObject();
+        this.storedFiles = (ConcurrentHashMap<String, FileDetails>) in.readObject();
     }
 }
