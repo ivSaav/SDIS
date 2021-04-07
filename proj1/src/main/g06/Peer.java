@@ -145,9 +145,9 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
     @Override
     public String reclaim(int new_capacity) {
+        System.out.println("RECLAIM max_size: " + new_capacity);
 
         List<FileDetails> stored = new ArrayList<>(this.storedFiles.values());
-
 
         while (this.disk_usage > new_capacity) {
             FileDetails file = stored.get(0);
@@ -158,6 +158,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
                     chunk.removeStorage(this.id); // remove storage
 
                     // TODO: remove this chunk from the stored chunks
+                    file.getChunks().remove(chunk);
+
                     byte[] message = Message.createMessage(this.version, MessageType.REMOVED, this.id, chunk.getFilehash(), chunk.getChunkNo());
                     controlChannel.multicast(message, message.length);
                     this.setChangesFlag();
@@ -347,9 +349,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
         //find chunk in stored chunks list
         FileDetails file = this.storedFiles.get(fileHash);
 
-        if (file != null)
+        if (file == null)
             file = this.initiatedFiles.get(fileHash);
-
 
         return file == null ? null : file.getChunk(chunkNo);
     }

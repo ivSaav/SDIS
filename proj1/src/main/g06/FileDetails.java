@@ -60,7 +60,9 @@ public class FileDetails implements Serializable {
     }
 
     public void addChunkReplication(int chunkNo, int peerId) {
-        chunks.get(chunkNo).addReplication(peerId);
+        Chunk chunk = this.chunks.get(chunkNo);
+        if (chunk != null)
+            chunks.get(chunkNo).addReplication(peerId);
     }
 
     public void clearMonitors() {
