@@ -25,8 +25,8 @@
 proj1/out/
 
 # Storage
-proj1/src/out/storage/
-proj1/src/out/main/
+proj1/storage/
+proj1/build/
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
