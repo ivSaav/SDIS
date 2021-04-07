@@ -2,10 +2,9 @@ package main.g06.message.protocols;
 
 import main.g06.Chunk;
 import main.g06.Peer;
+import main.g06.message.ChunkMonitor;
 import main.g06.message.Message;
 import main.g06.message.MessageType;
-
-import java.util.Random;
 
 public class RemovedProtocol implements Protocol {
 
@@ -31,19 +30,16 @@ public class RemovedProtocol implements Protocol {
         if (chunk != null) { // decremented the requested chunk's replication degree
             chunk.removeReplication(senderId); // remove perceived chunk replication
 
-            if (chunk.getPerceivedReplication() < desiredReplication) { //replication bellow desired level
+            if (chunk.getPerceivedReplication() < desiredReplication && !peer.isInitiator(fileHash)) { //replication bellow desired level
+                System.out.println("[!] Unfulfilled replication for chunkNo " + chunkNo);
+                ChunkMonitor monitor = peer.getFileDetails(fileHash).addMonitor(chunkNo);
 
-                System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA " + chunk.getPerceivedReplication());
-                Random rand = new Random();
-                int time = rand.nextInt(400);
-                try {
-                    Thread.sleep(time); // wait between 0 to 400 milliseconds
-                }
-                catch(InterruptedException e) {
-                    e.printStackTrace();
-                    System.exit(1);
-                }
-                // TODO abort if it has received a PUTCHUNK message for the same chunk
+                // if a PUTCHUNK message is receive within 0 to 400 random milliseconds the chunk is resolved
+                // and execution is stopped
+                if (monitor.await_send())
+                    return;
+
+                // If no PUTCHUNK messages for this chunk have been received send one to the other peers
                 byte[] body = chunk.retrieve(peer.getId());
                 byte[] message = Message.createMessage(this.peer.getVersion(), MessageType.PUTCHUNK,
                                                         this.peer.getId(), chunk.getFilehash(), chunk.getChunkNo(), desiredReplication, body);

@@ -22,13 +22,20 @@ public class PutchunkProtocol implements Protocol {
     public void start() {
         System.out.println(message.toString());
         Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length);
-        if (!peer.hasDiskSpace(chunk.getSize())) {
+
+        if (peer.isInitiator(message.fileId)) // for PUTCHUNK messages sent because of the REMOVED PROTOCOL (ignore chunk)
+            return;
+
+        if (!peer.hasDiskSpace(chunk.getSize())) { //checking if there is enough disk space for this chunk
             System.out.println("Not enough space for chunk " + chunk.getChunkNo());
             return;
         }
-
-        if (peer.hasStoredChunk(chunk)) // already have a local copy (do nothing)
+        if (peer.hasStoredChunk(chunk)) {// already have a local copy (do nothing)
+            //mark as solved if the chunk has a monitor associated
+            // a monitor is added when Receiving a REMOVED message and the desired replication degree isn't fulfilled
+            peer.resolveRemovedChunk(message.fileId, message.chunkNo); // prevent PUTCHUNK message
             return;
+        }
 
         peer.addStoredChunk(chunk, message.replicationDegree);
         chunk.store(peer.getId(), message.body);

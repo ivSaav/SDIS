@@ -1,6 +1,5 @@
 package main.g06.message.protocols;
 
-import main.g06.Chunk;
 import main.g06.Peer;
 import main.g06.message.Message;
 
@@ -20,7 +19,7 @@ public class StoredProtocol implements Protocol {
         peer.addPerceivedReplication(message.senderId, message.fileId, message.chunkNo);
         // marks a chunk as solved if the desired replication degree has been reached
         //only for initiator peer
-        peer.resolveChunk(message.fileId, message.chunkNo);
+        peer.resolveInitiatedChunk(message.fileId, message.chunkNo);
         peer.setChangesFlag();
     }
 }

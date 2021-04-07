@@ -82,8 +82,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
             this.filenameHashes.put(path, fileHash);
             this.initiatedFiles.put(fileHash, fd);
 
-            this.hasChanges = true; // flag for peer backup
-
             FileInputStream fstream = new FileInputStream(file);
             byte[] chunk_data = new byte[Definitions.CHUNK_SIZE];
             int num_read, last_num_read = -1, chunkNo = 0;
@@ -121,7 +119,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
             fstream.close();
             System.out.println("Created " + num_chunks + " chunks");
-            this.hasChanges = true;
+            this.hasChanges = true; // flag for peer backup
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -179,7 +177,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
                         return "success";
                 }
         }
-
         return "success";
     }
 
@@ -347,13 +344,30 @@ public class Peer implements ClientPeerProtocol, Serializable {
      * @param fileHash - file id
      * @param chunkNo - chunk number
      */
-    public void resolveChunk(String fileHash, int chunkNo) {
+    public void resolveInitiatedChunk(String fileHash, int chunkNo) {
         FileDetails file = this.initiatedFiles.get(fileHash);
         if (file != null){ // only used on initiator peer
             Chunk chunk = file.getChunk(chunkNo);
 
             if (chunk.getPerceivedReplication() >= file.getDesiredReplication())
                 file.getMonitor(chunkNo).markSolved();
+        }
+    }
+
+    /**
+     * Marks a chunk as resolved when a PUTCHUNK message is received
+     * Used in the REMOVED protocol
+     * Prevents a PUTCHUNK message from being sent (section - 3.5 Space reclaiming subprotocol)
+     * @param fileHash - file id
+     * @param chunkNo - chunk number
+     */
+    public void resolveRemovedChunk(String fileHash, int chunkNo) {
+        FileDetails file = this.storedFiles.get(fileHash);
+        if (file != null) {
+            ChunkMonitor monitor = file.getMonitor(chunkNo);
+
+            if (monitor != null)
+                monitor.markSolved();
         }
     }
 
@@ -374,6 +388,10 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public boolean hasStoredChunk(Chunk chunk) {
         FileDetails details = this.storedFiles.get(chunk.getFilehash());
         return details != null && (details.getChunk(chunk.getChunkNo()) != null);
+    }
+
+    public boolean isInitiator(String fileHash) {
+        return this.initiatedFiles.get(fileHash) != null;
     }
 
     public void addPerceivedReplication(int peerId, String fileHash, int chunkNo) {
@@ -405,7 +423,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         //find chunk in stored chunks list
         FileDetails file = this.storedFiles.get(fileHash);
 
-        if (file != null)
+        if (file == null)
             file = this.initiatedFiles.get(fileHash);
 
         return file == null ? 0 : file.getDesiredReplication();
