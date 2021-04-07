@@ -407,6 +407,11 @@ public class Peer implements ClientPeerProtocol, Serializable {
         file.addChunk(chunk);
     }
 
+    public void removeStoredChunk(Chunk chunk) {
+        FileDetails file = this.storedFiles.get(chunk.getFilehash());
+        file.removeChunk(chunk.getChunkNo());
+    }
+
     public Chunk getFileChunk(String fileHash, int chunkNo) {
 
         //find chunk in stored chunks list

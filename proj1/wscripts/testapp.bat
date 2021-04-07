@@ -1,2 +1,2 @@
 @echo off
-java -cp build main.g06.TestApp ap BACKUP shrug.png 2
+java -cp build main.g06.TestApp ap BACKUP tfiles/shrug.png 2

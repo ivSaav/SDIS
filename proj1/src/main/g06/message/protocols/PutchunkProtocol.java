@@ -40,6 +40,15 @@ public class PutchunkProtocol implements Protocol {
         peer.addStoredChunk(chunk, message.replicationDegree);
         chunk.store(peer.getId(), message.body);
         this.sendStorageResponse(message.fileId, message.chunkNo);
+
+        int desiredRep = peer.getFileReplication(message.fileId);
+        // TODO: verify version
+        if (chunk.getPerceivedReplication() > desiredRep) { // desired replication already reached (undo)
+//            System.out.println("IGNORING THIS \t" + message.chunkNo + "\t" + desiredRep + "\t" + chunk.getPerceivedReplication());
+            this.undoStorage(chunk);
+            return;
+        }
+
         peer.setChangesFlag();
     }
 
@@ -54,6 +63,22 @@ public class PutchunkProtocol implements Protocol {
             e.printStackTrace();
             System.exit(1);
         }
+        peer.getControlChannel().multicast(message, message.length);
+    }
+
+    /**
+     * Removes unnecessary replications
+     * Informs other peers of this operation
+     * @param chunk - chunk to be removed from storage
+     */
+    private void undoStorage(Chunk chunk) {
+        if (!chunk.removeStorage(peer.getId()))
+            return; // couldn't remove file
+
+        this.peer.removeStoredChunk(chunk);
+
+        // Inform other peers of removal
+        byte[] message = Message.createMessage(this.peer.getVersion(), MessageType.REMOVED, peer.getId(), chunk.getFilehash(), chunk.getChunkNo());
         peer.getControlChannel().multicast(message, message.length);
     }
 }
