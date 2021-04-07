@@ -26,6 +26,10 @@ public class PutchunkProtocol implements Protocol {
             System.out.println("Not enough space for chunk " + chunk.getChunkNo());
             return;
         }
+
+        if (peer.hasStoredChunk(chunk)) // already have a local copy (do nothing)
+            return;
+
         peer.addStoredChunk(chunk, message.replicationDegree);
         chunk.store(peer.getId(), message.body);
         this.sendStorageResponse(message.fileId, message.chunkNo);

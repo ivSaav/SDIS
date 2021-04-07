@@ -46,6 +46,11 @@ public class ChunkMonitor {
         notifyAll();
     }
 
+    public synchronized  void markSolved() {
+        this.chunkSolved = true;
+        notifyAll();
+    }
+
     public byte[] getData() {
         return data;
     }
