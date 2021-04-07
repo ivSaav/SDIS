@@ -57,7 +57,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         // TODO: Use custom ThreadPoolExecutor to maximize performance
         this.backupChannel = new MulticastChannel(this, mdbAddr, mdbPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
         this.controlChannel = new MulticastChannel(this, mcAddr, mcPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
-        this.restoreChannel = new MulticastChannel(this, mcAddr, mcPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
+        this.restoreChannel = new MulticastChannel(this, mdrAddr, mdrPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
 
         this.hasChanges = false;
     }
@@ -125,7 +125,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
             e.printStackTrace();
             return "failure";
         }
-
         return "success";
     }
 
