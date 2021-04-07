@@ -5,6 +5,7 @@ import main.g06.message.MessageType;
 
 import java.io.*;
 import java.rmi.AlreadyBoundException;
+import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
@@ -96,7 +97,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
                 chunkNo++;
             }
 
-            System.out.println(this.initiatedFiles);
             // Case of last chunk being size 0
             if (last_num_read == Definitions.CHUNK_SIZE) {
                 byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, new byte[] {});
@@ -143,7 +143,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
         List<FileDetails> stored = new ArrayList<>(this.storedFiles.values());
 
-        System.out.println(this.storedFiles);
 
         while (this.disk_usage > new_capacity) {
             FileDetails file = stored.get(0);
@@ -166,6 +165,44 @@ public class Peer implements ClientPeerProtocol, Serializable {
         return "success";
     }
 
+    @Override
+    public String state() throws RemoteException {
+        StringBuilder ret = new StringBuilder("\n========== INFO ==========\n");
+        // TODO maximum amount ??
+        ret.append(String.format("peerID: %d\ncapacity: %d KB\nused: %d KB\n", this.getId(), 0, this.disk_usage));
+
+
+        if (!this.initiatedFiles.isEmpty()) {
+            ret.append("\n========== INITIATED ===========\n");
+            for (Map.Entry<String, String> entry : this.filenameHashes.entrySet()) {
+                String filename = entry.getKey();
+                String hash = entry.getValue();
+                FileDetails fd = this.initiatedFiles.get(hash);
+                ret.append(
+                        String.format("filename: %s \tid: %s \tdesired replication: %d\n", filename, fd.getHash(), fd.getDesiredReplication())
+                );
+
+                for (Chunk chunk : fd.getChunks()) {
+                    ret.append(
+                            String.format(" - chunkNo: %d \tperceived replication: %d\n", chunk.getChunkNo(), chunk.getPerceivedReplication())
+                    );
+                }
+            }
+        }
+
+        if (!this.storedFiles.isEmpty()) {
+            ret.append("\n========== STORED ==========\n");
+            for (FileDetails details : this.storedFiles.values())
+                for (Chunk chunk : details.getChunks())
+                    ret.append(
+                            String.format("chunkNo: %s \tsize: %d KB\tdesired replication: %d \tperceived replication: %d\n",
+                                    chunk.getChunkNo(), chunk.getSize() / 1000, details.getDesiredReplication(), chunk.getPerceivedReplication()
+                            ));
+        }
+
+        return ret.toString();
+    }
+
     public static void main(String[] args) throws IOException{
 
         if (args.length < 1) {
@@ -181,8 +218,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
         Peer peer = new Peer(version, id, MC, MDB, MDR);
         PeerRecovery recovery = new PeerRecovery(peer); //recover previously saved peer data
-
-        System.out.println(peer);
 
         Registry registry = LocateRegistry.getRegistry();
         try {
@@ -278,6 +313,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     }
 
     public void restoreState(Peer previous) {
+        this.disk_usage = previous.disk_usage;
         this.storedFiles = previous.storedFiles;
         this.initiatedFiles = previous.initiatedFiles;
         this.filenameHashes = previous.filenameHashes;
@@ -310,6 +346,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
     @Serial
     private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+        out.writeInt(this.disk_usage);
         out.writeObject(this.filenameHashes);
         out.writeObject(this.initiatedFiles);
         out.writeObject(this.storedFiles);
@@ -318,6 +355,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     @Serial
     @SuppressWarnings("unchecked")
     private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+        this.disk_usage = in.readInt();
         this.filenameHashes = (ConcurrentHashMap<String, String>) in.readObject();
         this.initiatedFiles = (ConcurrentHashMap<String, FileDetails>) in.readObject();
         this.storedFiles = (ConcurrentHashMap<String, FileDetails>) in.readObject();

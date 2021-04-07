@@ -12,9 +12,6 @@ public class TestApp {
 
     public static void main(String[] args) {
 
-        System.out.println(new File(".").getAbsolutePath());
-        System.out.println((new File("asd.txt").exists()));
-
         String peer_ap = args[0];
         String filename;
         int repDegree;
@@ -38,6 +35,9 @@ public class TestApp {
             else if (operation == Definitions.Operation.RECLAIM) {
                 max_size = Integer.parseInt(args[2]);
                 response = stub.reclaim(max_size);
+            }
+            else if (operation == Definitions.Operation.STATE) {
+                response = stub.state();
             }
             else {
                 System.out.println("ERROR invalid operation:" + args[2]);
