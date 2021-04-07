@@ -23,9 +23,11 @@ if [[ "$peer_id" == "*" ]]
 then
 #  Cleanup all
   rm -rf storage
+  rm -rf restored
 else
 #  Clean only the specified peer
   rm -rf storage/$peer_id
+  rm -rf restored/$peer_id
 fi
 
 # Clean the directory tree for storing files

@@ -189,7 +189,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
             // send delete message to other peers
             FileDetails fileInfo = initiatedFiles.get(hash);
 
-            File restored = new File(restoreDirectory + file);
+            File restored = new File(restoreDirectory + this.id + File.separator + file);
             FileOutputStream fstream;
             restored.getParentFile().mkdirs();
 

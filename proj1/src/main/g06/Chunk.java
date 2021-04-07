@@ -6,6 +6,9 @@ import java.util.Objects;
 import java.util.Set;
 
 public class Chunk implements Serializable {
+
+    private static final String storageDir = "storage" + File.separator;
+
     private String filehash;
     private int chunkNo;
     private int size;
@@ -40,7 +43,7 @@ public class Chunk implements Serializable {
 
         String filename = this.filehash + "_" + this.chunkNo;
         try {
-            File file = new File("storage" + File.separator + peerId + File.separator + filename);
+            File file = new File(storageDir + peerId + File.separator + filename);
             file.getParentFile().mkdirs();
             file.createNewFile();
             FileOutputStream out = new FileOutputStream(file);
@@ -59,7 +62,7 @@ public class Chunk implements Serializable {
 
     public byte[] retrieve(int peerId) {
         // fetch backed up chunk
-        String filename = "storage" + File.separator + peerId + File.separator + this.filehash + "_" + this.chunkNo;
+        String filename = storageDir + peerId + File.separator + this.filehash + "_" + this.chunkNo;
         byte[] body = new byte[this.size];
         File file = new File(filename);
         try {
@@ -77,7 +80,7 @@ public class Chunk implements Serializable {
 
     public boolean removeStorage(int peerId) {
         String filename = this.filehash + "_" + this.chunkNo;
-        File file = new File("storage" + File.separator + peerId + File.separator + filename);
+        File file = new File(storageDir + peerId + File.separator + filename);
         if (!file.exists())
             System.out.printf("Couldn't locate %s \n", filename);
         return file.delete();
