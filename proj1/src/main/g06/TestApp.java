@@ -38,6 +38,9 @@ public class TestApp {
                 filename = args[2];
                 response = stub.restore(filename);
             }
+            else if (operation == Definitions.Operation.STATE) {
+                response = stub.state();
+            }
             else {
                 System.out.println("ERROR invalid operation:" + args[2]);
                 return;

@@ -8,4 +8,5 @@ public interface ClientPeerProtocol extends Remote {
     String delete(String file) throws RemoteException;
     String reclaim(int new_capacity) throws RemoteException;
     String restore(String file) throws RemoteException;
+    String state() throws RemoteException;
 }
