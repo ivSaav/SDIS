@@ -117,6 +117,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
                 System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
             }
 
+            fd.clearMonitors();
+
             fstream.close();
             System.out.println("Created " + num_chunks + " chunks");
             this.hasChanges = true; // flag for peer backup
@@ -348,8 +350,11 @@ public class Peer implements ClientPeerProtocol, Serializable {
         if (file != null){ // only used on initiator peer
             Chunk chunk = file.getChunk(chunkNo);
 
-            if (chunk.getPerceivedReplication() >= file.getDesiredReplication())
-                file.getMonitor(chunkNo).markSolved();
+            if (chunk.getPerceivedReplication() >= file.getDesiredReplication()) {
+                ChunkMonitor monitor = file.getMonitor(chunkNo);
+                if (monitor != null)
+                    monitor.markSolved();
+            }
         }
     }
 
@@ -364,7 +369,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
         FileDetails file = this.storedFiles.get(fileHash);
         if (file != null) {
             ChunkMonitor monitor = file.getMonitor(chunkNo);
-
             if (monitor != null)
                 monitor.markSolved();
         }
