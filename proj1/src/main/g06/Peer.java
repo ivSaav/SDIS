@@ -159,7 +159,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
         List<FileDetails> stored = new ArrayList<>(this.storedFiles.values());
 
         while (this.disk_usage > this.max_space) {
-            System.out.println(this.disk_usage);
             FileDetails file = stored.remove(0);
                 for (Chunk chunk : file.getChunks()) {
                     this.disk_usage -= chunk.getSize() / 1000;
