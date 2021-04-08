@@ -159,7 +159,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         List<FileDetails> stored = new ArrayList<>(this.storedFiles.values());
 
         while (this.disk_usage > this.max_space) {
-            FileDetails file = stored.get(0);
+            FileDetails file = stored.remove(0);
                 for (Chunk chunk : file.getChunks()) {
                     this.disk_usage -= chunk.getSize() / 1000;
 
@@ -268,8 +268,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
             for (FileDetails details : this.storedFiles.values())
                 for (Chunk chunk : details.getChunks())
                     ret.append(
-                            String.format("chunkNo: %s \tsize: %d KB\tdesired replication: %d \tperceived replication: %d\n",
-                                    chunk.getChunkNo(), chunk.getSize() / 1000, details.getDesiredReplication(), chunk.getPerceivedReplication()
+                            String.format("chunkID: %s \tsize: %d KB\tdesired replication: %d \tperceived replication: %d\n",
+                                    chunk.getFilehash() + "_" + chunk.getChunkNo(), chunk.getSize() / 1000, details.getDesiredReplication(), chunk.getPerceivedReplication()
                             ));
         }
 
