@@ -1,6 +1,7 @@
 package main.g06.message;
 
 import main.g06.Peer;
+import main.g06.SdisUtils;
 import main.g06.message.protocols.Protocol;
 import main.g06.message.protocols.ProtocolBuilder;
 
@@ -32,13 +33,20 @@ public class MessageThread extends Thread {
         if (!parsePacket())
             return;
 
+        System.out.println(message);
+
+        if (SdisUtils.isVersionOlder(peer.getVersion(), message.version))
+            return;
+
         try {
             // Choose and build message
             protocol = ProtocolBuilder.build(peer, message);
+            if (protocol == null)
+                return;
             protocol.start();
         }
         catch (Exception e) {
-            System.out.println("Encountered an error in MessageThread");
+            System.out.println("Encountered an error in MessageThread of type " + message.type);
             e.printStackTrace();
         }
     }

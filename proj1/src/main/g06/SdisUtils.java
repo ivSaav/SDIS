@@ -41,4 +41,27 @@ public class SdisUtils {
         }
         return hexString.toString();
     }
+
+    /**
+     * @param v1
+     * @param v2
+     * @return Returns true if v1 is older than v2
+     */
+    public static boolean isVersionOlder(String v1, String v2) {
+        String[] split1 = v1.split("\\.");
+        String[] split2 = v2.split("\\.");
+
+        if (Integer.parseInt(split1[0]) < Integer.parseInt(split2[0]))
+            return true;
+
+        return Integer.parseInt(split1[1]) < Integer.parseInt(split2[1]);
+    }
+
+    public static boolean isInitialVersion(String v) {
+        return v.equals("1.0");
+    }
+
+    public static String shortenHash(String hash) {
+        return hash.substring(0, 6);
+    }
 }

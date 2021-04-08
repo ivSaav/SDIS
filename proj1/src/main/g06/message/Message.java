@@ -1,5 +1,7 @@
 package main.g06.message;
 
+import main.g06.SdisUtils;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,37 +31,37 @@ public class Message {
     }
 
     public static Message parse(byte[] data, int size) {
-        List<byte[]> split = Message.split(data, size);
+        List<byte[]> headers = new ArrayList<>();
+        byte[] body = Message.split(data, size, headers);
 
-        // Parse version
-        String version = new String(split.get(0));
-//        int dotIndex = aux.indexOf('.');
-//        int minorVersion = Integer.parseInt(aux.substring(0, dotIndex));
-//        int majorVersion = Integer.parseInt(aux.substring(dotIndex + 1));
+        // Common args
+        String version = new String(headers.get(0));
+        MessageType type = MessageType.valueOf(new String(headers.get(1)));
+        int senderId = Integer.parseInt(new String(headers.get(2)));
+        String fileId = new String(headers.get(3)).toLowerCase();
 
-        MessageType type = MessageType.valueOf(new String(split.get(1)));
+        // Default values
+        int chunkNo = -1, replicationDegree = -1;
 
-        int senderId = Integer.parseInt(new String(split.get(2)));
-        String fileId = new String(split.get(3)).toLowerCase();
+        if (headers.size() >= 5)
+            chunkNo = Integer.parseInt(new String(headers.get(4)));
 
-        if (type == MessageType.DELETE)
-            return new Message(version, type, senderId, fileId, -1, -1, new byte[] {});
+        if (headers.size() >= 6)
+            replicationDegree = Integer.parseInt(new String(headers.get(5)));
 
-        int chunkNo = Integer.parseInt(new String(split.get(4)));
-        if (type != MessageType.PUTCHUNK) {
-            if (type == MessageType.CHUNK)
-                return new Message(version, type, senderId, fileId, chunkNo, -1, split.get(5));
-            else
-                return new Message(version, type, senderId, fileId, chunkNo, -1, new byte[] {});
-        }
-        int replicationDegree = Integer.parseInt(new String(split.get(5)));
-        return new Message(version, type, senderId, fileId, chunkNo, replicationDegree, split.get(6));
+        return new Message(version, type, senderId, fileId, chunkNo, replicationDegree, body);
     }
 
+    private static boolean containsCRLF(byte[] data, int start, int i) {
+        return i - start == 4 && (
+                data[start] == Message.CR
+                && data[start + 1] == Message.LF
+                && data[start + 2] == Message.CR
+                && data[start + 3] == Message.LF
+        );
+    }
 
-    public static List<byte[]> split(byte[] data, int size) {
-        List<byte[]> split = new ArrayList<>();
-
+    public static byte[] split(byte[] data, int size, List<byte[]> headers) {
         boolean found_arg = false;
 
         int start = 0;
@@ -70,28 +72,20 @@ public class Message {
                     found_arg = true;
                 }
             } else {
-                // May contain CRLF*2
-                if (i - start == 4 && (data[start] == Message.CR && data[start + 1] == Message.LF && data[start + 2] == Message.CR && data[start + 3] == Message.LF)) {
-                    if (i != size - 1) {
-                        // Has body
-                        split.add(Arrays.copyOfRange(data, i, size));
-                    }
-                    else {
-                        split.add(new byte[] {});
-                    }
-
-                    return split;
+                if (containsCRLF(data, start, i)) {
+                    // Return either the body or an empty byte array
+                    return Arrays.copyOfRange(data, i, size);
                 }
 
                 if (data[i] == Message.SEP) {
-                    split.add(Arrays.copyOfRange(data, start, i));
+                    headers.add(Arrays.copyOfRange(data, start, i));
                     found_arg = false;
                 }
             }
         }
 
         // Should NOT get here
-        return split;
+        return new byte[]{};
     }
 
     public static byte[] createMessage(String version, MessageType type, int senderId,
@@ -129,11 +123,11 @@ public class Message {
         return "Message{" +
                 "v=" + version +
                 ", " + type +
-                ", senderId=" + senderId +
-                ", fileId='" + fileId.substring(0, 6) + '\'' +
-                ", chunkNo=" + chunkNo +
-                ", repDeg=" + replicationDegree +
-                ", body=" + body.length +
+                ", sender=" + senderId +
+                ", file='" + SdisUtils.shortenHash(fileId) + '\'' +
+                (chunkNo == -1 ? "" : ", chunkNo=" + chunkNo) +
+                (replicationDegree == -1 ? "" : ", repDeg=" + replicationDegree) +
+                (body.length == 0 ? "" : ", body=" + body.length) +
                 '}';
     }
 }

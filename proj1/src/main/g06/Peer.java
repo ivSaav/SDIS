@@ -5,6 +5,10 @@ import main.g06.message.Message;
 import main.g06.message.MessageType;
 
 import java.io.*;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.rmi.AlreadyBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -42,7 +46,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.storedFiles = new ConcurrentHashMap<>();
 
         String[] vals = MC.split(":"); //MC
-
         String mcAddr = vals[0];
         int mcPort = Integer.parseInt(vals[1]);
 
@@ -182,59 +185,73 @@ public class Peer implements ClientPeerProtocol, Serializable {
     @Override
     public String restore(String file) throws RemoteException {
         // checking if this peer was the initiator for file backup
-        if (this.filenameHashes.containsKey(file)) {
+        if (!this.filenameHashes.containsKey(file))
+            return "failure";
 
-            String hash = this.filenameHashes.get(file);
-            // send delete message to other peers
-            FileDetails fileInfo = initiatedFiles.get(hash);
+        String hash = this.filenameHashes.get(file);
+        // send delete message to other peers
+        FileDetails fileInfo = initiatedFiles.get(hash);
 
-            File restored = new File(restoreDirectory + this.id + File.separator + file);
-            FileOutputStream fstream;
-            restored.getParentFile().mkdirs();
+        File restored = new File(restoreDirectory + this.id + File.separator + file);
+        FileOutputStream fstream;
+        restored.getParentFile().mkdirs();
 
-            try {
-                restored.createNewFile();
-                fstream = new FileOutputStream(restored);
+        try {
+            restored.createNewFile();
+            fstream = new FileOutputStream(restored);
 
-                byte[] message;
-                boolean lastChunk = false;
-                int chunkNo = 0;
-                while (!lastChunk) {
-                    ChunkMonitor cm = fileInfo.addMonitor(chunkNo);
-                    message = Message.createMessage(this.version, MessageType.GETCHUNK, this.id, fileInfo.getHash(), chunkNo);
+            byte[] message;
+            boolean lastChunk = false;
+            int chunkNo = 0;
+            while (!lastChunk) {
+                ChunkMonitor cm = fileInfo.addMonitor(chunkNo);
+                message = Message.createMessage(this.version, MessageType.GETCHUNK, this.id, fileInfo.getHash(), chunkNo);
 
-                    int i;
-                    for (i = 0; i < 3; i++) {  // 3 retries per chunk
-                        // send GETCHUNK message to other peers
-                        controlChannel.multicast(message, message.length);
-                        System.out.printf("RESTORE %s %d\n", file, chunkNo);
+                int i;
+                for (i = 0; i < 3; i++) {  // 3 retries per chunk
+                    // send GETCHUNK message to other peers
+                    controlChannel.multicast(message, message.length);
+                    System.out.printf("RESTORE %s %d\n", file, chunkNo);
 
-                        if (!cm.await_receive())
-                            continue;
+                    if (!cm.await_receive())
+                        continue;
 
-                        fileInfo.removeMonitor(chunkNo);
+                    fileInfo.removeMonitor(chunkNo);
 
-                        fstream.write(cm.getData());
+                    byte[] data;
+                    if (SdisUtils.isInitialVersion(version)) {
+                        // Original
+                        data = cm.getData();
+                    } else{
+                        // Enhancement
+                        String[] tcp_details = new String(cm.getData(), StandardCharsets.US_ASCII).split(":");
+                        Socket socket = new Socket(InetAddress.getByName(tcp_details[0]), Integer.parseInt(tcp_details[1]));
+                        InputStream is = socket.getInputStream();
 
-                        if (cm.getData().length != Definitions.CHUNK_SIZE)
-                            lastChunk = true;
-                        break;
+                        data = is.readAllBytes();
+
+                        socket.close();
                     }
 
-                    if (i >= 3) {
-                        fstream.close();
-                        return "failure";
-                    }
-
-                    chunkNo++;
+                    fstream.write(data);
+                    if (data.length != Definitions.CHUNK_SIZE)
+                        lastChunk = true;
+                    break;
                 }
 
-                fstream.close();
+                if (i >= 3) {
+                    fstream.close();
+                    return "failure";
+                }
 
-            } catch (IOException e) {
-                e.printStackTrace();
-                return "failure";
+                chunkNo++;
             }
+
+            fstream.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "failure";
         }
 
         return "success";
@@ -306,6 +323,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
         peer.backupChannel.start();
         peer.controlChannel.start();
+        peer.restoreChannel.start();
 
         // save current peer state every 30 seconds
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();

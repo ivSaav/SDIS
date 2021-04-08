@@ -20,7 +20,6 @@ public class PutchunkProtocol implements Protocol {
 
     @Override
     public void start() {
-        System.out.println(message.toString());
         Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length);
 
         if (peer.isInitiator(message.fileId)) // for PUTCHUNK messages sent because of the REMOVED PROTOCOL (ignore chunk)

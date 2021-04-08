@@ -24,6 +24,7 @@ public abstract class ProtocolBuilder {
     );
 
     public static Protocol build(Peer peer, Message message) {
-        return constructors.get(message.type).constructor(peer, message);
+        ProtocolBuilderFI pb = constructors.get(message.type);
+        return pb == null ? null : pb.constructor(peer, message);
     }
 }

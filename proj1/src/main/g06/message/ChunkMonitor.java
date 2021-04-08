@@ -27,7 +27,15 @@ public class ChunkMonitor {
      * @return True if the data is available
      */
     public synchronized boolean await_receive() {
-        long timeoutTime = System.currentTimeMillis() + 5000;
+        return await_receive(2000);
+    }
+
+    /**
+     * Awaits as the recover peer
+     * @return True if the data is available
+     */
+    public synchronized boolean await_receive(long timeout) {
+        long timeoutTime = System.currentTimeMillis() + timeout;
         while (!chunkSolved && System.currentTimeMillis() < timeoutTime) {
             long timeoutMillis = timeoutTime - System.currentTimeMillis(); // recompute timeout values
             try {

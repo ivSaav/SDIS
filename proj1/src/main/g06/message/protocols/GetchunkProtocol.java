@@ -2,9 +2,17 @@ package main.g06.message.protocols;
 
 import main.g06.FileDetails;
 import main.g06.Peer;
+import main.g06.SdisUtils;
 import main.g06.message.ChunkMonitor;
 import main.g06.message.Message;
 import main.g06.message.MessageType;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 
 public class GetchunkProtocol implements Protocol {
 
@@ -18,8 +26,6 @@ public class GetchunkProtocol implements Protocol {
 
     @Override
     public void start() {
-        System.out.printf("GETCHUNK from: %d   file: %s   chunkNo: %d\n", message.senderId, message.fileId.substring(0, 5), message.chunkNo);
-
         FileDetails fileDetails = peer.getFileDetails(message.fileId);
         if (fileDetails == null)
             return;
@@ -29,11 +35,41 @@ public class GetchunkProtocol implements Protocol {
         if (cm.await_send())
             return; // Another peer already sent the chunk
 
-        byte[] body = fileDetails.getChunk(message.chunkNo).retrieve(peer.getId());
-        byte[] messageBytes = Message.createMessage(peer.getVersion(), MessageType.CHUNK, peer.getId(), message.fileId, message.chunkNo, body);
-
-        peer.getRestoreChannel().multicast(messageBytes, messageBytes.length);
-
         fileDetails.removeMonitor(message.chunkNo);
+
+        if (SdisUtils.isInitialVersion(message.version)) {
+            // Initial version
+            byte[] body = retrieveChunk(fileDetails);
+            byte[] messageBytes = Message.createMessage(message.version, MessageType.CHUNK, peer.getId(), message.fileId, message.chunkNo, body);
+            peer.getRestoreChannel().multicast(messageBytes, messageBytes.length);
+        } else {
+            // Improvement
+            try {
+                ServerSocket serverSocket = new ServerSocket(0);
+                serverSocket.setSoTimeout(2000);
+
+                byte[] body = (serverSocket.getInetAddress().getHostName() + ":" + serverSocket.getLocalPort()).getBytes(StandardCharsets.US_ASCII);
+                byte[] messageBytes = Message.createMessage(peer.getVersion(), MessageType.CHUNK, peer.getId(), message.fileId, message.chunkNo, body);
+                peer.getRestoreChannel().multicast(messageBytes, messageBytes.length);
+
+                Socket socket = serverSocket.accept();
+
+                OutputStream os = socket.getOutputStream();
+                os.write(retrieveChunk(fileDetails));
+
+                socket.shutdownOutput();
+                socket.close();
+
+                serverSocket.close();
+            } catch (SocketTimeoutException e) {
+                return;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private byte[] retrieveChunk(FileDetails fileDetails) {
+        return fileDetails.getChunk(message.chunkNo).retrieve(peer.getId());
     }
 }

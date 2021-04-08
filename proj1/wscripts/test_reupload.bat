@@ -1,2 +1,2 @@
 @echo off
-java -cp build main.g06.TestApp ap BACKUP asd.txt 1
+java -cp build main.g06.TestApp ap BACKUP tfiles/asd.txt 1

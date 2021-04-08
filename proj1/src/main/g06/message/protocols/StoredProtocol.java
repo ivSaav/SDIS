@@ -15,7 +15,6 @@ public class StoredProtocol implements Protocol {
 
     @Override
     public void start() {
-        System.out.printf("STORED from: %d  chunkNo: %d \n", message.senderId, message.chunkNo);
         peer.addPerceivedReplication(message.senderId, message.fileId, message.chunkNo);
         // marks a chunk as solved if the desired replication degree has been reached
         //only for initiator peer

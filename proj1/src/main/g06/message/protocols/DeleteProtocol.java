@@ -20,11 +20,7 @@ public class DeleteProtocol implements Protocol {
 
     @Override
     public void start() {
-        System.out.printf("DELETE from: %d ; fileID: %s\n", message.senderId, message.fileId);
-        this.removeFileFromStorage(message.fileId);
-    }
-
-    private void removeFileFromStorage(String fileHash){
+        String fileHash = message.fileId;
         if (peer.getStoredFiles().containsKey(fileHash)){
             Collection<Chunk> chunks = peer.getStoredFiles().get(fileHash).getChunks();
 

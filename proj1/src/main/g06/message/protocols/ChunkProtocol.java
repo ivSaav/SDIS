@@ -17,8 +17,6 @@ public class ChunkProtocol implements Protocol {
 
     @Override
     public void start() {
-        System.out.printf("CHUNK from: %d   file: %s   chunkNo: %d\n", message.senderId, message.fileId.substring(0, 5), message.chunkNo);
-
         FileDetails fileDetails = peer.getFileDetails(message.fileId);
         ChunkMonitor cm;
         if (fileDetails == null || (cm = fileDetails.getMonitor(message.chunkNo)) == null)
