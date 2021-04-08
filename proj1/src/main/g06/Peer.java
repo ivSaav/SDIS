@@ -39,7 +39,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public Peer(String version, int id, String MC, String MDB, String MDR) {
         this.id = id;
         this.version = version;
-        this.max_space = Integer.MAX_VALUE; // unlimited storage space in the beginning
+        this.max_space = 2000000; // 2GB space in the beginning
         this.disk_usage = 0; // current used space
         this.filenameHashes = new ConcurrentHashMap<>();
         this.initiatedFiles = new ConcurrentHashMap<>();
@@ -104,7 +104,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
                     System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
                     backupChannel.multicast(message, message.length);
                     ChunkMonitor monitor = fd.addMonitor(chunkNo);
-                    if (monitor.await_receive())
+                    if (monitor.await_receive((long) (Math.pow(2, attempts) * 1000)))
                         break;
                     System.out.println("[!] Couldn't achieve desired replication. Resending...");
                     attempts++;

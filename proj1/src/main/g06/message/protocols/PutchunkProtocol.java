@@ -28,15 +28,16 @@ public class PutchunkProtocol implements Protocol {
             System.out.println("Not enough space for chunk " + chunk.getChunkNo());
             return;
         }
-        if (peer.hasStoredChunk(chunk)) {// already have a local copy (do nothing)
+
+        if (peer.hasStoredChunk(chunk)) {// already have a local copy
             //mark as solved if the chunk has a monitor associated
             // a monitor is added when Receiving a REMOVED message and the desired replication degree isn't fulfilled
             peer.resolveRemovedChunk(message.fileId, message.chunkNo); // prevent PUTCHUNK message
-            return;
+        } else {
+            peer.addStoredChunk(chunk, message.replicationDegree);
+            chunk.store(peer.getId(), message.body);
         }
 
-        peer.addStoredChunk(chunk, message.replicationDegree);
-        chunk.store(peer.getId(), message.body);
         this.confirmStorage(chunk);
     }
 

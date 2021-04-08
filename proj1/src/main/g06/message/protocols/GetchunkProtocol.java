@@ -1,5 +1,6 @@
 package main.g06.message.protocols;
 
+import main.g06.Chunk;
 import main.g06.FileDetails;
 import main.g06.Peer;
 import main.g06.SdisUtils;
@@ -30,6 +31,10 @@ public class GetchunkProtocol implements Protocol {
         if (fileDetails == null)
             return;
 
+        Chunk chunk = fileDetails.getChunk(message.chunkNo);
+        if (chunk == null)
+            return;
+
         ChunkMonitor cm = fileDetails.addMonitor(message.chunkNo);
 
         if (cm.await_send())
@@ -39,7 +44,7 @@ public class GetchunkProtocol implements Protocol {
 
         if (SdisUtils.isInitialVersion(message.version)) {
             // Initial version
-            byte[] body = retrieveChunk(fileDetails);
+            byte[] body = chunk.retrieve(peer.getId());
             byte[] messageBytes = Message.createMessage(message.version, MessageType.CHUNK, peer.getId(), message.fileId, message.chunkNo, body);
             peer.getRestoreChannel().multicast(messageBytes, messageBytes.length);
         } else {
@@ -55,7 +60,7 @@ public class GetchunkProtocol implements Protocol {
                 Socket socket = serverSocket.accept();
 
                 OutputStream os = socket.getOutputStream();
-                os.write(retrieveChunk(fileDetails));
+                os.write(chunk.retrieve(peer.getId()));
 
                 socket.shutdownOutput();
                 socket.close();
@@ -67,9 +72,5 @@ public class GetchunkProtocol implements Protocol {
                 e.printStackTrace();
             }
         }
-    }
-
-    private byte[] retrieveChunk(FileDetails fileDetails) {
-        return fileDetails.getChunk(message.chunkNo).retrieve(peer.getId());
     }
 }
