@@ -120,6 +120,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
                 System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
             }
 
+            fd.clearMonitors();
+
             fstream.close();
             System.out.println("Created " + num_chunks + " chunks");
             this.hasChanges = true; // flag for peer backup
@@ -162,7 +164,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         List<FileDetails> stored = new ArrayList<>(this.storedFiles.values());
 
         while (this.disk_usage > this.max_space) {
-            FileDetails file = stored.get(0);
+            FileDetails file = stored.remove(0);
                 for (Chunk chunk : file.getChunks()) {
                     this.disk_usage -= chunk.getSize() / 1000;
 
@@ -260,7 +262,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public String state() throws RemoteException {
         StringBuilder ret = new StringBuilder("\n========== INFO ==========\n");
 
-        ret.append(String.format("peerID: %d\nmax capacity: %d KB\nused: %d KB\n", this.getId(), this.max_space, this.disk_usage));
+        ret.append(String.format("peerID: %d \nversion: %s \nmax capacity: %d KB\nused: %d KB\n", this.getId(), this.version, this.max_space, this.disk_usage));
 
         if (!this.initiatedFiles.isEmpty()) {
             ret.append("\n========== INITIATED ===========\n");
@@ -285,8 +287,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
             for (FileDetails details : this.storedFiles.values())
                 for (Chunk chunk : details.getChunks())
                     ret.append(
-                            String.format("chunkNo: %s \tsize: %d KB\tdesired replication: %d \tperceived replication: %d\n",
-                                    chunk.getChunkNo(), chunk.getSize() / 1000, details.getDesiredReplication(), chunk.getPerceivedReplication()
+                            String.format("chunkID: %s \tsize: %d KB\tdesired replication: %d \tperceived replication: %d\n",
+                                    chunk.getFilehash() + "_" + chunk.getChunkNo(), chunk.getSize() / 1000, details.getDesiredReplication(), chunk.getPerceivedReplication()
                             ));
         }
 
@@ -366,8 +368,11 @@ public class Peer implements ClientPeerProtocol, Serializable {
         if (file != null){ // only used on initiator peer
             Chunk chunk = file.getChunk(chunkNo);
 
-            if (chunk.getPerceivedReplication() >= file.getDesiredReplication())
-                file.getMonitor(chunkNo).markSolved();
+            if (chunk.getPerceivedReplication() >= file.getDesiredReplication()) {
+                ChunkMonitor monitor = file.getMonitor(chunkNo);
+                if (monitor != null)
+                    monitor.markSolved();
+            }
         }
     }
 
@@ -382,7 +387,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
         FileDetails file = this.storedFiles.get(fileHash);
         if (file != null) {
             ChunkMonitor monitor = file.getMonitor(chunkNo);
-
             if (monitor != null)
                 monitor.markSolved();
         }
@@ -423,6 +427,12 @@ public class Peer implements ClientPeerProtocol, Serializable {
         FileDetails file = this.storedFiles.computeIfAbsent(chunk.getFilehash(), v -> new FileDetails(chunk.getFilehash(),0, desiredReplication));
         this.disk_usage += chunk.getSize() / 1000; // update current disk space usage
         file.addChunk(chunk);
+    }
+
+    public void removeStoredChunk(Chunk chunk) {
+        FileDetails file = this.storedFiles.get(chunk.getFilehash());
+        file.removeChunk(chunk.getChunkNo());
+        this.disk_usage -= chunk.getSize() / 1000;
     }
 
     public Chunk getFileChunk(String fileHash, int chunkNo) {
