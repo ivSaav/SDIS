@@ -5,7 +5,6 @@ import main.g06.Peer;
 import main.g06.message.Message;
 import main.g06.message.MessageType;
 
-import java.util.Arrays;
 import java.util.Random;
 
 public class PutchunkProtocol implements Protocol {
@@ -39,21 +38,17 @@ public class PutchunkProtocol implements Protocol {
 
         peer.addStoredChunk(chunk, message.replicationDegree);
         chunk.store(peer.getId(), message.body);
-        this.sendStorageResponse(message.fileId, message.chunkNo);
-
-        int desiredRep = peer.getFileReplication(message.fileId);
-        // TODO: verify version
-        if (chunk.getPerceivedReplication() > desiredRep) { // desired replication already reached (undo)
-//            System.out.println("IGNORING THIS \t" + message.chunkNo + "\t" + desiredRep + "\t" + chunk.getPerceivedReplication());
-            this.undoStorage(chunk);
-            return;
-        }
-
-        peer.setChangesFlag();
+        this.confirmStorage(chunk);
     }
 
-    public void sendStorageResponse(String fileId, int chunkNo) {
-        byte[] message = Message.createMessage(peer.getVersion(), MessageType.STORED, peer.getId(), fileId, chunkNo);
+    /**
+     * Sends a confirmation message (STORED) to other peers
+     * v2.0 cancels message storage when the desired replication has already been reached
+     * @param chunk - chunk to be confirmed
+     */
+    public void confirmStorage(Chunk chunk) {
+        byte[] message = Message.createMessage(peer.getVersion(), MessageType.STORED, peer.getId(), chunk.getFilehash(), chunk.getChunkNo());
+
         Random rand = new Random();
         int time = rand.nextInt(400);
         try {
@@ -63,11 +58,20 @@ public class PutchunkProtocol implements Protocol {
             e.printStackTrace();
             System.exit(1);
         }
-        peer.getControlChannel().multicast(message, message.length);
+
+        // Enhancement for v2.0
+        // cancelling aborting storage operation
+        if (this.peer.getVersion().equals("2.0") && chunk.getPerceivedReplication() > peer.getFileReplication(chunk.getFilehash())) {
+            this.undoStorage(chunk); //remove local storage
+        }
+        else {
+            peer.getControlChannel().multicast(message, message.length);
+            peer.setChangesFlag();
+        }
     }
 
     /**
-     * Removes unnecessary replications
+     * Removes unnecessary replications (v2.0)
      * Informs other peers of this operation
      * @param chunk - chunk to be removed from storage
      */
@@ -76,9 +80,5 @@ public class PutchunkProtocol implements Protocol {
             return; // couldn't remove file
 
         this.peer.removeStoredChunk(chunk);
-
-        // Inform other peers of removal
-        byte[] message = Message.createMessage(this.peer.getVersion(), MessageType.REMOVED, peer.getId(), chunk.getFilehash(), chunk.getChunkNo());
-        peer.getControlChannel().multicast(message, message.length);
     }
 }

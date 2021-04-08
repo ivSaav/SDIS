@@ -159,7 +159,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
         List<FileDetails> stored = new ArrayList<>(this.storedFiles.values());
 
         while (this.disk_usage > this.max_space) {
-            FileDetails file = stored.get(0);
+            System.out.println(this.disk_usage);
+            FileDetails file = stored.remove(0);
                 for (Chunk chunk : file.getChunks()) {
                     this.disk_usage -= chunk.getSize() / 1000;
 
@@ -243,7 +244,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public String state() throws RemoteException {
         StringBuilder ret = new StringBuilder("\n========== INFO ==========\n");
 
-        ret.append(String.format("peerID: %d\nmax capacity: %d KB\nused: %d KB\n", this.getId(), this.max_space, this.disk_usage));
+        ret.append(String.format("peerID: %d \nversion: %s \nmax capacity: %d KB\nused: %d KB\n", this.getId(), this.version, this.max_space, this.disk_usage));
 
         if (!this.initiatedFiles.isEmpty()) {
             ret.append("\n========== INITIATED ===========\n");
@@ -410,6 +411,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public void removeStoredChunk(Chunk chunk) {
         FileDetails file = this.storedFiles.get(chunk.getFilehash());
         file.removeChunk(chunk.getChunkNo());
+        this.disk_usage -= chunk.getSize() / 1000;
     }
 
     public Chunk getFileChunk(String fileHash, int chunkNo) {
