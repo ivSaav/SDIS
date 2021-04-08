@@ -5,9 +5,7 @@ import main.g06.message.ChunkMonitor;
 import java.io.IOException;
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class FileDetails implements Serializable {
@@ -81,6 +79,13 @@ public class FileDetails implements Serializable {
 
     public ChunkMonitor getMonitor(int chunkNo) {
         return this.chunkMonitors.get(chunkNo);
+    }
+
+    public Set<Integer> getPeersWithChunks() {
+        Set<Integer> peers = new HashSet<>();
+        for (Chunk c: chunks.values())
+            c.addPeersWithChunk(peers);
+        return peers;
     }
 
     @Override

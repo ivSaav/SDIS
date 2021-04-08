@@ -2,6 +2,7 @@ package main.g06.message.protocols;
 
 import main.g06.Chunk;
 import main.g06.Peer;
+import main.g06.SdisUtils;
 import main.g06.message.Message;
 import main.g06.message.MessageType;
 
@@ -60,12 +61,12 @@ public class PutchunkProtocol implements Protocol {
         }
 
         // Enhancement for v2.0
-        // cancelling aborting storage operation
-        if (this.peer.getVersion().equals("2.0") && chunk.getPerceivedReplication() > peer.getFileReplication(chunk.getFilehash())) {
+        // aborting storage operation
+        if (!SdisUtils.isInitialVersion(peer.getVersion()) && chunk.getPerceivedReplication() > peer.getFileReplication(chunk.getFilehash())) {
             this.undoStorage(chunk); //remove local storage
         }
         else {
-            peer.getControlChannel().multicast(message, message.length);
+            peer.getControlChannel().multicast(message);
             peer.setChangesFlag();
         }
     }

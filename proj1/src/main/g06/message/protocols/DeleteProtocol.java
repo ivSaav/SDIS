@@ -2,11 +2,11 @@ package main.g06.message.protocols;
 
 import main.g06.Chunk;
 import main.g06.Peer;
+import main.g06.SdisUtils;
 import main.g06.message.Message;
+import main.g06.message.MessageType;
 
 import java.util.Collection;
-import java.util.List;
-import java.util.Set;
 
 public class DeleteProtocol implements Protocol {
 
@@ -25,6 +25,11 @@ public class DeleteProtocol implements Protocol {
             Collection<Chunk> chunks = peer.getStoredFiles().get(fileHash).getChunks();
 
             chunks.removeIf(chunk -> chunk.removeStorage(peer.getId())); // remove chunk from fileHash List
+
+            if (!SdisUtils.isInitialVersion(peer.getVersion())) {
+                byte[] deletedMessage = Message.createMessage(peer.getVersion(), MessageType.DELETED, peer.getId(), message.fileId, message.chunkNo);
+                peer.getControlChannel().multicast(deletedMessage);
+            }
 
             if (chunks.isEmpty()) // remove file entry from files hashmap
                 peer.removeStoredFile(fileHash);

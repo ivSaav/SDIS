@@ -46,7 +46,7 @@ public class GetchunkProtocol implements Protocol {
             // Initial version
             byte[] body = chunk.retrieve(peer.getId());
             byte[] messageBytes = Message.createMessage(message.version, MessageType.CHUNK, peer.getId(), message.fileId, message.chunkNo, body);
-            peer.getRestoreChannel().multicast(messageBytes, messageBytes.length);
+            peer.getRestoreChannel().multicast(messageBytes);
         } else {
             // Improvement
             try {
@@ -55,7 +55,7 @@ public class GetchunkProtocol implements Protocol {
 
                 byte[] body = (serverSocket.getInetAddress().getHostName() + ":" + serverSocket.getLocalPort()).getBytes(StandardCharsets.US_ASCII);
                 byte[] messageBytes = Message.createMessage(peer.getVersion(), MessageType.CHUNK, peer.getId(), message.fileId, message.chunkNo, body);
-                peer.getRestoreChannel().multicast(messageBytes, messageBytes.length);
+                peer.getRestoreChannel().multicast(messageBytes);
 
                 Socket socket = serverSocket.accept();
 

@@ -6,5 +6,7 @@ public enum MessageType {
     GETCHUNK,
     CHUNK,
     DELETE,
-    REMOVED
+    REMOVED,
+    INIT,
+    DELETED
 }

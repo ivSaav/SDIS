@@ -38,10 +38,13 @@ public class Message {
         String version = new String(headers.get(0));
         MessageType type = MessageType.valueOf(new String(headers.get(1)));
         int senderId = Integer.parseInt(new String(headers.get(2)));
-        String fileId = new String(headers.get(3)).toLowerCase();
 
         // Default values
+        String fileId = "";
         int chunkNo = -1, replicationDegree = -1;
+
+        if (headers.size() >= 4)
+            fileId = new String(headers.get(3)).toLowerCase();
 
         if (headers.size() >= 5)
             chunkNo = Integer.parseInt(new String(headers.get(4)));
@@ -88,6 +91,10 @@ public class Message {
         return new byte[]{};
     }
 
+    public static byte[] createMessage(String version, MessageType type, int senderId) {
+        return createMessage(version, type, senderId, "", -1, -1, new byte[] {});
+    }
+
     public static byte[] createMessage(String version, MessageType type, int senderId,
                                String fileId) {
         return createMessage(version, type, senderId, fileId, -1, -1, new byte[] {});
@@ -124,7 +131,7 @@ public class Message {
                 "v=" + version +
                 ", " + type +
                 ", sender=" + senderId +
-                ", file='" + SdisUtils.shortenHash(fileId) + '\'' +
+                (fileId.isEmpty() ? "" : ", file='" + SdisUtils.shortenHash(fileId) + "'") +
                 (chunkNo == -1 ? "" : ", chunkNo=" + chunkNo) +
                 (replicationDegree == -1 ? "" : ", repDeg=" + replicationDegree) +
                 (body.length == 0 ? "" : ", body=" + body.length) +

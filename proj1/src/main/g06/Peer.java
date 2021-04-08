@@ -6,7 +6,6 @@ import main.g06.message.MessageType;
 
 import java.io.*;
 import java.net.InetAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.rmi.AlreadyBoundException;
@@ -29,6 +28,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     private Map<String, String> filenameHashes; // filename --> fileHash
     private Map<String, FileDetails> initiatedFiles; // filehash --> FileDetail
     private Map<String, FileDetails> storedFiles; // filehash --> Chunks
+    private Map<Integer, Set<String>> undeletedFiles; // Peer id --> Undeleted Chunks
 
     private final MulticastChannel backupChannel;
     private final MulticastChannel restoreChannel;
@@ -44,6 +44,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.filenameHashes = new ConcurrentHashMap<>();
         this.initiatedFiles = new ConcurrentHashMap<>();
         this.storedFiles = new ConcurrentHashMap<>();
+        this.undeletedFiles = new ConcurrentHashMap<>();
 
         String[] vals = MC.split(":"); //MC
         String mcAddr = vals[0];
@@ -72,9 +73,15 @@ public class Peer implements ClientPeerProtocol, Serializable {
             this.delete(path); // removing previous version
         }
 
-        String fileHash = SdisUtils.createFileHash(path);
+        String fileHash = SdisUtils.createFileHash(path, id);
         if (fileHash == null)
             return "failure";
+
+        // In case the same file was BACKUP > DELETE > BACKUP again
+        // If one of the other peers was offline during the deletion and inited
+        // then in the future we would send the request to DELETE the file and the
+        // newer backup would be lost in a tragic accident
+        cleanUndeletedFileRecords(fileHash);
 
         try {
             File file = new File(path);
@@ -102,7 +109,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
                 int attempts = 0;
                 while (attempts < max_putchunk_tries) {
                     System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
-                    backupChannel.multicast(message, message.length);
+                    backupChannel.multicast(message);
                     ChunkMonitor monitor = fd.addMonitor(chunkNo);
                     if (monitor.await_receive((long) (Math.pow(2, attempts) * 1000)))
                         break;
@@ -116,7 +123,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
             // Case of last chunk being size 0
             if (last_num_read == Definitions.CHUNK_SIZE) {
                 byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, new byte[] {});
-                backupChannel.multicast(message, message.length);
+                backupChannel.multicast(message);
                 System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
             }
 
@@ -137,16 +144,18 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public String delete(String file) {
         // checking if this peer was the initiator for file backup
         if (this.filenameHashes.containsKey(file)) {
-
             String hash = this.filenameHashes.get(file);
+
             // send delete message to other peers
             FileDetails fileInfo = initiatedFiles.get(hash);
+
+            addFileAsUndeleted(fileInfo);
+
             byte[] message = Message.createMessage(this.version, MessageType.DELETE, this.id, fileInfo.getHash());
-            controlChannel.multicast(message, message.length);
+            controlChannel.multicast(message);
             System.out.printf("DELETE %s\n", file);
 
             //remove all data regarding this file
-            this.disk_usage -= fileInfo.getSize() / 1000;
             this.removeInitiatedFile(file);
 
             this.hasChanges = true; // flag for peer backup
@@ -174,7 +183,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
                     file.getChunks().remove(chunk); // remove chunk from stored file
 
                     byte[] message = Message.createMessage(this.version, MessageType.REMOVED, this.id, chunk.getFilehash(), chunk.getChunkNo());
-                    controlChannel.multicast(message, message.length);
+                    controlChannel.multicast(message);
                     this.setChangesFlag();
 
                     if (this.disk_usage <= this.max_space)
@@ -212,7 +221,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
                 int i;
                 for (i = 0; i < 3; i++) {  // 3 retries per chunk
                     // send GETCHUNK message to other peers
-                    controlChannel.multicast(message, message.length);
+                    controlChannel.multicast(message);
                     System.out.printf("RESTORE %s %d\n", file, chunkNo);
 
                     if (!cm.await_receive())
@@ -330,6 +339,11 @@ public class Peer implements ClientPeerProtocol, Serializable {
         // save current peer state every 30 seconds
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(recovery, 15, 30, TimeUnit.SECONDS);
+
+        if (!SdisUtils.isInitialVersion(peer.version)) {
+            byte[] initMessage = Message.createMessage(peer.version, MessageType.INIT, peer.id);
+            peer.controlChannel.multicast(initMessage);
+        }
     }
 
     public String getVersion() { return version; }
@@ -462,18 +476,45 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.storedFiles = previous.storedFiles;
         this.initiatedFiles = previous.initiatedFiles;
         this.filenameHashes = previous.filenameHashes;
+        this.undeletedFiles = previous.undeletedFiles;
     }
 
     public void removeInitiatedFile(String filename) {
         String hash = this.filenameHashes.get(filename);
 
         this.initiatedFiles.remove(hash);
-//        this.storedChunks.remove(filename);
         this.filenameHashes.remove(filename);
     }
 
     public void removeStoredFile(String hash) {
         this.storedFiles.remove(hash);
+    }
+
+    // UNDELETED FILES
+    public Iterator<String> getPeerUndeletedFiles(int peerId) {
+        Set<String> files = this.undeletedFiles.get(peerId);
+        return files == null ? Collections.emptyIterator() : files.iterator();
+    }
+
+    public void removeUndeletedFile(int peerId, String fileHash) {
+        Set<String> files = this.undeletedFiles.get(peerId);
+        if (files == null)
+            return;
+        files.remove(fileHash);
+    }
+
+    private void cleanUndeletedFileRecords(String hash) {
+        for (Set<String> files: this.undeletedFiles.values())
+            files.remove(hash);
+    }
+
+    private void addFileAsUndeleted(FileDetails fileDetails) {
+        Set<Integer> peers = fileDetails.getPeersWithChunks();
+
+        for (Integer peerId: peers) {
+            Set<String> undeletedFiles = this.undeletedFiles.computeIfAbsent(peerId, k -> ConcurrentHashMap.newKeySet());
+            undeletedFiles.add(fileDetails.getHash());
+        }
     }
 
     @Override
@@ -500,6 +541,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         out.writeObject(this.filenameHashes);
         out.writeObject(this.initiatedFiles);
         out.writeObject(this.storedFiles);
+        out.writeObject(this.undeletedFiles);
     }
 
     @Serial
@@ -510,5 +552,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.filenameHashes = (ConcurrentHashMap<String, String>) in.readObject();
         this.initiatedFiles = (ConcurrentHashMap<String, FileDetails>) in.readObject();
         this.storedFiles = (ConcurrentHashMap<String, FileDetails>) in.readObject();
+        this.undeletedFiles = (ConcurrentHashMap<Integer, Set<String>>) in.readObject();
     }
 }

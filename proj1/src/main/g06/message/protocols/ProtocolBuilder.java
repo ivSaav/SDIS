@@ -20,7 +20,9 @@ public abstract class ProtocolBuilder {
             new EnumMap.SimpleEntry<MessageType, ProtocolBuilderFI>(MessageType.CHUNK, ChunkProtocol::new),
             new EnumMap.SimpleEntry<MessageType, ProtocolBuilderFI>(MessageType.STORED, StoredProtocol::new),
             new EnumMap.SimpleEntry<MessageType, ProtocolBuilderFI>(MessageType.DELETE, DeleteProtocol::new),
-            new EnumMap.SimpleEntry<MessageType, ProtocolBuilderFI>(MessageType.REMOVED, RemovedProtocol::new)
+            new EnumMap.SimpleEntry<MessageType, ProtocolBuilderFI>(MessageType.REMOVED, RemovedProtocol::new),
+            new EnumMap.SimpleEntry<MessageType, ProtocolBuilderFI>(MessageType.INIT, InitProtocol::new),
+            new EnumMap.SimpleEntry<MessageType, ProtocolBuilderFI>(MessageType.DELETED, DeletedProtocol::new)
     );
 
     public static Protocol build(Peer peer, Message message) {

@@ -11,12 +11,12 @@ import java.security.NoSuchAlgorithmException;
 
 public class SdisUtils {
 
-    public static String createFileHash(String path) {
+    public static String createFileHash(String path, int initiatorPeerId) {
         try {
             Path file = Paths.get(path);
             BasicFileAttributes attribs = Files.readAttributes(file, BasicFileAttributes.class); // get file metadata
 
-            String originalString = path + attribs.lastModifiedTime() + attribs.creationTime();
+            String originalString = path + attribs.lastModifiedTime() + attribs.creationTime() + initiatorPeerId;
 
             final MessageDigest digest = MessageDigest.getInstance("SHA3-256");
             final byte[] hashbytes = digest.digest(originalString.getBytes(StandardCharsets.US_ASCII));

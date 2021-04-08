@@ -53,13 +53,12 @@ public class MulticastChannel extends Thread {
         }
     }
 
-    public void multicast(byte[] message, int size) {
-
+    public void multicast(byte[] message) {
         try {
             DatagramSocket socket = new DatagramSocket();
             InetAddress address = InetAddress.getByName(this.group);
 
-            DatagramPacket packet = new DatagramPacket(message, size, address, this.port);
+            DatagramPacket packet = new DatagramPacket(message, message.length, address, this.port);
             socket.send(packet);
             socket.close();
         }

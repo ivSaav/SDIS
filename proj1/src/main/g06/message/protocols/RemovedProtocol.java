@@ -42,7 +42,7 @@ public class RemovedProtocol implements Protocol {
                 byte[] body = chunk.retrieve(peer.getId());
                 byte[] message = Message.createMessage(this.peer.getVersion(), MessageType.PUTCHUNK,
                                                         this.peer.getId(), chunk.getFilehash(), chunk.getChunkNo(), desiredReplication, body);
-                peer.getBackupChannel().multicast(message, message.length); // sending putchunk to other peers
+                peer.getBackupChannel().multicast(message); // sending putchunk to other peers
             }
         }
     }

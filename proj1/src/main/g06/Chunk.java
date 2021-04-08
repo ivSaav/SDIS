@@ -86,6 +86,10 @@ public class Chunk implements Serializable {
         return file.delete();
     }
 
+    public void addPeersWithChunk(Set<Integer> peers) {
+        peers.addAll(this.replications);
+    }
+
     @Override
     public String toString() {
         return "Chunk{" +
