@@ -268,8 +268,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
             for (FileDetails details : this.storedFiles.values())
                 for (Chunk chunk : details.getChunks())
                     ret.append(
-                            String.format("chunkNo: %s \tsize: %d KB\tdesired replication: %d \tperceived replication: %d\n",
-                                    chunk.getChunkNo(), chunk.getSize() / 1000, details.getDesiredReplication(), chunk.getPerceivedReplication()
+                            String.format("chunkID: %s \tsize: %d KB\tdesired replication: %d \tperceived replication: %d\n",
+                                    chunk.getFilehash() + "_" + chunk.getChunkNo(), chunk.getSize() / 1000, details.getDesiredReplication(), chunk.getPerceivedReplication()
                             ));
         }
 
