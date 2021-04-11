@@ -1,4 +1,4 @@
-package main.g06.message.protocols;
+package main.g06.message.handlers;
 
 import main.g06.Chunk;
 import main.g06.Peer;
@@ -8,12 +8,12 @@ import main.g06.message.MessageType;
 
 import java.util.Collection;
 
-public class DeleteProtocol implements Protocol {
+public class DeleteHandler implements Handler {
 
     private final Peer peer;
     private final Message message;
 
-    public DeleteProtocol(Peer peer, Message message) {
+    public DeleteHandler(Peer peer, Message message) {
         this.peer = peer;
         this.message = message;
     }

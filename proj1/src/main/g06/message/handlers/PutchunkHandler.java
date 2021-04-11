@@ -1,4 +1,4 @@
-package main.g06.message.protocols;
+package main.g06.message.handlers;
 
 import main.g06.Chunk;
 import main.g06.Peer;
@@ -8,12 +8,12 @@ import main.g06.message.MessageType;
 
 import java.util.Random;
 
-public class PutchunkProtocol implements Protocol {
+public class PutchunkHandler implements Handler {
 
     private final Peer peer;
     private final Message message;
 
-    public PutchunkProtocol(Peer peer, Message message) {
+    public PutchunkHandler(Peer peer, Message message) {
         this.peer = peer;
         this.message = message;
     }

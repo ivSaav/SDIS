@@ -1,4 +1,4 @@
-package main.g06.message.protocols;
+package main.g06.message.handlers;
 
 import main.g06.MulticastChannel;
 import main.g06.Peer;
@@ -8,11 +8,11 @@ import main.g06.message.MessageType;
 
 import java.util.Iterator;
 
-public class InitProtocol implements Protocol {
+public class InitHandler implements Handler {
     private final Peer peer;
     private final Message message;
 
-    public InitProtocol(Peer peer, Message message) {
+    public InitHandler(Peer peer, Message message) {
         this.peer = peer;
         this.message = message;
     }

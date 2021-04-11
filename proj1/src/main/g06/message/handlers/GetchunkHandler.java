@@ -1,4 +1,4 @@
-package main.g06.message.protocols;
+package main.g06.message.handlers;
 
 import main.g06.Chunk;
 import main.g06.FileDetails;
@@ -15,12 +15,12 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 
-public class GetchunkProtocol implements Protocol {
+public class GetchunkHandler implements Handler {
 
     private final Peer peer;
     private final Message message;
 
-    public GetchunkProtocol(Peer peer, Message message) {
+    public GetchunkHandler(Peer peer, Message message) {
         this.peer = peer;
         this.message = message;
     }

@@ -2,8 +2,8 @@ package main.g06.message;
 
 import main.g06.Peer;
 import main.g06.SdisUtils;
-import main.g06.message.protocols.Protocol;
-import main.g06.message.protocols.ProtocolBuilder;
+import main.g06.message.handlers.Handler;
+import main.g06.message.handlers.HandlerBuilder;
 
 import java.net.DatagramPacket;
 
@@ -12,7 +12,7 @@ public class MessageThread extends Thread {
     protected final DatagramPacket packet;
     protected final Peer peer;
     protected Message message;
-    protected Protocol protocol;
+    protected Handler handler;
 
     public MessageThread(Peer peer, DatagramPacket packet) {
         this.peer = peer;
@@ -40,10 +40,10 @@ public class MessageThread extends Thread {
 
         try {
             // Choose and build message
-            protocol = ProtocolBuilder.build(peer, message);
-            if (protocol == null)
+            handler = HandlerBuilder.build(peer, message);
+            if (handler == null)
                 return;
-            protocol.start();
+            handler.start();
         }
         catch (Exception e) {
             System.out.println("Encountered an error in MessageThread of type " + message.type);

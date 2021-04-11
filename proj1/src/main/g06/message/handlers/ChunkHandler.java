@@ -1,16 +1,16 @@
-package main.g06.message.protocols;
+package main.g06.message.handlers;
 
 import main.g06.FileDetails;
 import main.g06.Peer;
 import main.g06.message.ChunkMonitor;
 import main.g06.message.Message;
 
-public class ChunkProtocol implements Protocol {
+public class ChunkHandler implements Handler {
 
     private final Peer peer;
     private final Message message;
 
-    public ChunkProtocol(Peer peer, Message message) {
+    public ChunkHandler(Peer peer, Message message) {
         this.peer = peer;
         this.message = message;
     }

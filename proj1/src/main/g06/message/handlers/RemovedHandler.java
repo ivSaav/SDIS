@@ -1,4 +1,4 @@
-package main.g06.message.protocols;
+package main.g06.message.handlers;
 
 import main.g06.Chunk;
 import main.g06.Peer;
@@ -6,12 +6,12 @@ import main.g06.message.ChunkMonitor;
 import main.g06.message.Message;
 import main.g06.message.MessageType;
 
-public class RemovedProtocol implements Protocol {
+public class RemovedHandler implements Handler {
 
     private final Peer peer;
     private final Message message;
 
-    public RemovedProtocol(Peer peer, Message message) {
+    public RemovedHandler(Peer peer, Message message) {
         this.peer = peer;
         this.message = message;
     }
