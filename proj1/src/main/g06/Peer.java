@@ -193,6 +193,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         return "success";
     }
 
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Override
     public String restore(String file) throws RemoteException {
         // checking if this peer was the initiator for file backup
@@ -203,7 +204,9 @@ public class Peer implements ClientPeerProtocol, Serializable {
         // send delete message to other peers
         FileDetails fileInfo = initiatedFiles.get(hash);
 
-        File restored = new File(restoreDirectory + this.id + File.separator + file);
+        String fileName = new File(file).getName();
+
+        File restored = new File(restoreDirectory + this.id + File.separator + fileName);
         FileOutputStream fstream;
         restored.getParentFile().mkdirs();
 

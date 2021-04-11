@@ -8,7 +8,11 @@
 #  either a single peer, in which case you may or not use the argument
 #    or for all peers, in which case you 
 
-echo "No setup needed, like never :)"
+mv ../../tfiles/shrug.png shrug.png
+mv ../../tfiles/jojo.json jojo.json
+mv ../../tfiles/sherlock.txt sherlock.txt
+mv ../../tfiles/8k.jpg 8k.jpg
+mv ../../tfiles/16k.jpg 16k.jpg
 
 # Check number input arguments
 #argc=$#
