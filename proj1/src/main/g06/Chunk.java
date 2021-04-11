@@ -7,8 +7,6 @@ import java.util.Set;
 
 public class Chunk implements Serializable {
 
-    private static final String storageDir = "storage" + File.separator;
-
     private String filehash;
     private int chunkNo;
     private int size;
@@ -39,11 +37,10 @@ public class Chunk implements Serializable {
         this.replications.remove(peerId);
     }
 
-    public void store(int peerId, byte[] contents) {
-
-        String filename = this.filehash + "_" + this.chunkNo;
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    public void store(Peer peer, byte[] contents) {
+        File file = new File(peer.getStoragePath(filehash) + chunkNo);
         try {
-            File file = new File(storageDir + peerId + File.separator + filename);
             file.getParentFile().mkdirs();
             file.createNewFile();
             FileOutputStream out = new FileOutputStream(file);
@@ -51,20 +48,19 @@ public class Chunk implements Serializable {
             out.flush();
             out.close();
 
-            this.addReplication(peerId);
+            this.addReplication(peer.getId());
         }
         catch (IOException e) {
-            System.out.println("Couldn't locate specified file " + filename);
+            System.out.println("Couldn't locate specified file " + file.getName());
             e.printStackTrace();
             System.exit(1);
         }
     }
 
-    public byte[] retrieve(int peerId) {
+    public byte[] retrieve(Peer peer) {
         // fetch backed up chunk
-        String filename = storageDir + peerId + File.separator + this.filehash + "_" + this.chunkNo;
         byte[] body = new byte[this.size];
-        File file = new File(filename);
+        File file = new File(peer.getStoragePath(this.filehash) + chunkNo);
         try {
             FileInputStream fstream = new FileInputStream(file);
             int num_read = fstream.read(body);
@@ -78,11 +74,10 @@ public class Chunk implements Serializable {
         return body;
     }
 
-    public boolean removeStorage(int peerId) {
-        String filename = this.filehash + "_" + this.chunkNo;
-        File file = new File(storageDir + peerId + File.separator + filename);
+    public boolean removeStorage(Peer peer) {
+        File file = new File(peer.getStoragePath(filehash) + this.chunkNo);
         if (!file.exists())
-            System.out.printf("Couldn't locate %s \n", filename);
+            System.out.printf("Couldn't locate %s \n", file.getPath());
         return file.delete();
     }
 

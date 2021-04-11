@@ -19,8 +19,6 @@ import java.util.concurrent.*;
 
 public class Peer implements ClientPeerProtocol, Serializable {
 
-    private static final String restoreDirectory = "restored" + File.separator;
-
     private final int id;
     private final String version;
     private int max_space;
@@ -66,6 +64,19 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.hasChanges = false;
     }
 
+    public String getPeerPath() {
+        return "peers" + File.separator + "p" + this.id + File.separator;
+    }
+
+    public String getStoragePath(String fileHash) {
+        return getPeerPath() + "storage" + File.separator + fileHash + File.separator;
+    }
+
+    public String getRestorePath(String fileName) {
+        File f = new File(fileName);
+        return getPeerPath() + "restored" + File.separator + f.getName();
+    }
+
     @Override
     public String backup(String path, int repDegree) {
         if (this.filenameHashes.containsKey(path)) { // checking for a previous version of this file
@@ -105,26 +116,17 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
                 fd.addChunk(new Chunk(fileHash, chunkNo, num_read));
 
-                int max_putchunk_tries = 5;
-                int attempts = 0;
-                while (attempts < max_putchunk_tries) {
-                    System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
-                    backupChannel.multicast(message);
-                    ChunkMonitor monitor = fd.addMonitor(chunkNo);
-                    if (monitor.await_receive((long) (Math.pow(2, attempts) * 1000)))
-                        break;
-                    System.out.println("[!] Couldn't achieve desired replication. Resending...");
-                    attempts++;
-                }
+                backupChunk(fd, chunkNo, message, num_read);
+
                 last_num_read = num_read;
                 chunkNo++;
             }
 
             // Case of last chunk being size 0
             if (last_num_read == Definitions.CHUNK_SIZE) {
+                fd.addChunk(new Chunk(fileHash, chunkNo, 0));
                 byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, new byte[] {});
-                backupChannel.multicast(message);
-                System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
+                backupChunk(fd, chunkNo, message, 0);
             }
 
             fd.clearMonitors();
@@ -138,6 +140,20 @@ public class Peer implements ClientPeerProtocol, Serializable {
             return "failure";
         }
         return "success";
+    }
+
+    private void backupChunk(FileDetails fd, int chunkNo, byte[] message, int num_read) {
+        int max_putchunk_tries = 5;
+        int attempts = 0;
+        while (attempts < max_putchunk_tries) {
+            System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
+            backupChannel.multicast(message);
+            ChunkMonitor monitor = fd.addMonitor(chunkNo);
+            if (monitor.await_receive((long) (Math.pow(2, attempts) * 1000)))
+                break;
+            System.out.println("[!] Couldn't achieve desired replication. Resending...");
+            attempts++;
+        }
     }
 
     @Override
@@ -178,7 +194,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
                     this.disk_usage -= chunk.getSize() / 1000;
 
                     file.removeChunk(chunk.getChunkNo()); // remove chunk from file
-                    chunk.removeStorage(this.id); // remove storage
+                    chunk.removeStorage(this); // remove storage
 
                     file.getChunks().remove(chunk); // remove chunk from stored file
 
@@ -206,7 +222,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
         String fileName = new File(file).getName();
 
-        File restored = new File(restoreDirectory + this.id + File.separator + fileName);
+        File restored = new File(getRestorePath(file));
         FileOutputStream fstream;
         restored.getParentFile().mkdirs();
 
@@ -382,14 +398,15 @@ public class Peer implements ClientPeerProtocol, Serializable {
      */
     public void resolveInitiatedChunk(String fileHash, int chunkNo) {
         FileDetails file = this.initiatedFiles.get(fileHash);
-        if (file != null){ // only used on initiator peer
-            Chunk chunk = file.getChunk(chunkNo);
+        if (file == null) // only used on initiator peer
+            return;
 
-            if (chunk.getPerceivedReplication() >= file.getDesiredReplication()) {
-                ChunkMonitor monitor = file.getMonitor(chunkNo);
-                if (monitor != null)
-                    monitor.markSolved();
-            }
+        Chunk chunk = file.getChunk(chunkNo);
+
+        if (chunk.getPerceivedReplication() >= file.getDesiredReplication()) {
+            ChunkMonitor monitor = file.getMonitor(chunkNo);
+            if (monitor != null)
+                monitor.markSolved();
         }
     }
 
@@ -438,8 +455,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
             fileDetails.addChunkReplication(chunkNo, peerId);
     }
 
-
-    // TODO: Do synchronized stuff
     public void addStoredChunk(Chunk chunk, int desiredReplication) {
         FileDetails file = this.storedFiles.computeIfAbsent(chunk.getFilehash(), v -> new FileDetails(chunk.getFilehash(),0, desiredReplication));
         this.disk_usage += chunk.getSize() / 1000; // update current disk space usage

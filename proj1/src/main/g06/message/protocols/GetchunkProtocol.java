@@ -44,7 +44,7 @@ public class GetchunkProtocol implements Protocol {
 
         if (SdisUtils.isInitialVersion(message.version)) {
             // Initial version
-            byte[] body = chunk.retrieve(peer.getId());
+            byte[] body = chunk.retrieve(peer);
             byte[] messageBytes = Message.createMessage(message.version, MessageType.CHUNK, peer.getId(), message.fileId, message.chunkNo, body);
             peer.getRestoreChannel().multicast(messageBytes);
         } else {
@@ -60,7 +60,7 @@ public class GetchunkProtocol implements Protocol {
                 Socket socket = serverSocket.accept();
 
                 OutputStream os = socket.getOutputStream();
-                os.write(chunk.retrieve(peer.getId()));
+                os.write(chunk.retrieve(peer));
 
                 socket.shutdownOutput();
                 socket.close();

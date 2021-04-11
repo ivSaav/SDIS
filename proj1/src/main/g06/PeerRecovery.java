@@ -20,8 +20,7 @@ public class PeerRecovery implements Runnable {
             if (!peer.hasChanges())
                 return;
             System.out.println("Saving current state");
-            String filename = Definitions.STORAGE_DIR + File.separator + peer.getId() + File.separator + "backup.ser";
-            File file = new File(filename);
+            File file = new File(peer.getPeerPath() + "backup.ser");
 
             if (!file.exists()) { //create missing directories
                 file.getParentFile().mkdirs();
@@ -29,7 +28,7 @@ public class PeerRecovery implements Runnable {
             }
 
 
-            FileOutputStream fstream = new FileOutputStream(filename);
+            FileOutputStream fstream = new FileOutputStream(file);
             ObjectOutputStream oos = new ObjectOutputStream(fstream);
 
             // save peer object
@@ -47,9 +46,9 @@ public class PeerRecovery implements Runnable {
 
     public void recoverData() {
         // recover peer's backed up state
-        String filename = Definitions.STORAGE_DIR + File.separator + this.peer.getId() + File.separator + "backup.ser";
+        File file = new File(peer.getPeerPath() + "backup.ser");
+
         try {
-            File file = new File(filename);
             if (!file.exists()) // didn't find a backed up version
                 return;
             System.out.println("Recovering last saved state");
