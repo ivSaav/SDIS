@@ -105,26 +105,17 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
                 fd.addChunk(new Chunk(fileHash, chunkNo, num_read));
 
-                int max_putchunk_tries = 5;
-                int attempts = 0;
-                while (attempts < max_putchunk_tries) {
-                    System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
-                    backupChannel.multicast(message);
-                    ChunkMonitor monitor = fd.addMonitor(chunkNo);
-                    if (monitor.await_receive((long) (Math.pow(2, attempts) * 1000)))
-                        break;
-                    System.out.println("[!] Couldn't achieve desired replication. Resending...");
-                    attempts++;
-                }
+                backupChunk(fd, chunkNo, message, num_read);
+
                 last_num_read = num_read;
                 chunkNo++;
             }
 
             // Case of last chunk being size 0
             if (last_num_read == Definitions.CHUNK_SIZE) {
+                fd.addChunk(new Chunk(fileHash, chunkNo, 0));
                 byte[] message = Message.createMessage(this.version, MessageType.PUTCHUNK, this.id, fileHash, chunkNo, repDegree, new byte[] {});
-                backupChannel.multicast(message);
-                System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
+                backupChunk(fd, chunkNo, message, 0);
             }
 
             fd.clearMonitors();
@@ -138,6 +129,20 @@ public class Peer implements ClientPeerProtocol, Serializable {
             return "failure";
         }
         return "success";
+    }
+
+    private void backupChunk(FileDetails fd, int chunkNo, byte[] message, int num_read) {
+        int max_putchunk_tries = 5;
+        int attempts = 0;
+        while (attempts < max_putchunk_tries) {
+            System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
+            backupChannel.multicast(message);
+            ChunkMonitor monitor = fd.addMonitor(chunkNo);
+            if (monitor.await_receive((long) (Math.pow(2, attempts) * 1000)))
+                break;
+            System.out.println("[!] Couldn't achieve desired replication. Resending...");
+            attempts++;
+        }
     }
 
     @Override
@@ -382,14 +387,15 @@ public class Peer implements ClientPeerProtocol, Serializable {
      */
     public void resolveInitiatedChunk(String fileHash, int chunkNo) {
         FileDetails file = this.initiatedFiles.get(fileHash);
-        if (file != null){ // only used on initiator peer
-            Chunk chunk = file.getChunk(chunkNo);
+        if (file == null) // only used on initiator peer
+            return;
 
-            if (chunk.getPerceivedReplication() >= file.getDesiredReplication()) {
-                ChunkMonitor monitor = file.getMonitor(chunkNo);
-                if (monitor != null)
-                    monitor.markSolved();
-            }
+        Chunk chunk = file.getChunk(chunkNo);
+
+        if (chunk.getPerceivedReplication() >= file.getDesiredReplication()) {
+            ChunkMonitor monitor = file.getMonitor(chunkNo);
+            if (monitor != null)
+                monitor.markSolved();
         }
     }
 

@@ -31,6 +31,9 @@ public class Message {
     }
 
     public static Message parse(byte[] data, int size) {
+
+        System.out.println(new String(data).substring(0, 50));
+
         List<byte[]> headers = new ArrayList<>();
         byte[] body = Message.split(data, size, headers);
 
