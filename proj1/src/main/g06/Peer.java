@@ -190,7 +190,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public String reclaim(int new_capacity) {
         System.out.println("RECLAIM max_size: " + new_capacity);
 
-        this.maxSpace = new_capacity;
+        this.maxSpace = new_capacity * 1000L;
 
         List<FileDetails> stored = new ArrayList<>(this.storedFiles.values());
 
@@ -479,10 +479,10 @@ public class Peer implements ClientPeerProtocol, Serializable {
         file.addChunk(chunk);
     }
 
-    public void removeStoredChunk(Chunk chunk) {
-        FileDetails file = this.storedFiles.get(chunk.getFilehash());
-        file.removeChunk(chunk.getChunkNo());
-        this.decreaseDiskUsage(chunk.getSize());
+    public void removeStoredChunk(String fileHash, int chunkNo) {
+        FileDetails file = this.storedFiles.get(fileHash);
+        Chunk c = file.removeChunk(chunkNo);
+        this.decreaseDiskUsage(c.getSize());
     }
 
     public Chunk getFileChunk(String fileHash, int chunkNo) {

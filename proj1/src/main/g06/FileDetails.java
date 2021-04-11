@@ -38,8 +38,8 @@ public class FileDetails implements Serializable {
         this.chunks.put(chunk.getChunkNo(), chunk);
     }
 
-   public void removeChunk(int chunkNo) {
-       this.chunks.remove(chunkNo);
+   public Chunk removeChunk(int chunkNo) {
+       return this.chunks.remove(chunkNo);
    }
 
     public int getDesiredReplication() {

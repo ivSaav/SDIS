@@ -46,9 +46,10 @@ public class PutchunkHandler implements Handler {
         peer.getScheduledPool().schedule(() -> {
             if (!SdisUtils.isInitialVersion(peer.getVersion())
                     && finalChunk != null
-                    && finalChunk.getPerceivedReplication() > peer.getFileReplication(finalChunk.getFilehash())) {
+                    && finalChunk.getPerceivedReplication() >= peer.getFileReplication(finalChunk.getFilehash())) {
                 // Enhancement for v2.0
                 // Only store if replication degree was not hit yet
+                peer.removeStoredChunk(message.fileId, message.chunkNo);
                 return;
             }
 
