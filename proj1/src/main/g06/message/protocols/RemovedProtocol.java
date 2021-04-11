@@ -39,7 +39,7 @@ public class RemovedProtocol implements Protocol {
                     return;
 
                 // If no PUTCHUNK messages for this chunk have been received send one to the other peers
-                byte[] body = chunk.retrieve(peer.getId());
+                byte[] body = chunk.retrieve(peer);
                 byte[] message = Message.createMessage(this.peer.getVersion(), MessageType.PUTCHUNK,
                                                         this.peer.getId(), chunk.getFilehash(), chunk.getChunkNo(), desiredReplication, body);
                 peer.getBackupChannel().multicast(message); // sending putchunk to other peers

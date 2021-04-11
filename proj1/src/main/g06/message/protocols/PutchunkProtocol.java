@@ -36,7 +36,7 @@ public class PutchunkProtocol implements Protocol {
             peer.resolveRemovedChunk(message.fileId, message.chunkNo); // prevent PUTCHUNK message
         } else {
             peer.addStoredChunk(chunk, message.replicationDegree);
-            chunk.store(peer.getId(), message.body);
+            chunk.store(peer, message.body);
         }
 
         this.confirmStorage(chunk);
@@ -77,7 +77,7 @@ public class PutchunkProtocol implements Protocol {
      * @param chunk - chunk to be removed from storage
      */
     private void undoStorage(Chunk chunk) {
-        if (!chunk.removeStorage(peer.getId()))
+        if (!chunk.removeStorage(peer))
             return; // couldn't remove file
 
         this.peer.removeStoredChunk(chunk);

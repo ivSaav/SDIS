@@ -19,8 +19,6 @@ import java.util.concurrent.*;
 
 public class Peer implements ClientPeerProtocol, Serializable {
 
-    private static final String restoreDirectory = "restored" + File.separator;
-
     private final int id;
     private final String version;
     private int max_space;
@@ -64,6 +62,19 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.restoreChannel = new MulticastChannel(this, mdrAddr, mdrPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
 
         this.hasChanges = false;
+    }
+
+    public String getPeerPath() {
+        return "peers" + File.separator + "p" + this.id + File.separator;
+    }
+
+    public String getStoragePath(String fileHash) {
+        return getPeerPath() + "storage" + File.separator + fileHash + File.separator;
+    }
+
+    public String getRestorePath(String fileName) {
+        File f = new File(fileName);
+        return getPeerPath() + "restored" + File.separator + f.getName();
     }
 
     @Override
@@ -183,7 +194,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
                     this.disk_usage -= chunk.getSize() / 1000;
 
                     file.removeChunk(chunk.getChunkNo()); // remove chunk from file
-                    chunk.removeStorage(this.id); // remove storage
+                    chunk.removeStorage(this); // remove storage
 
                     file.getChunks().remove(chunk); // remove chunk from stored file
 
@@ -211,7 +222,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
         String fileName = new File(file).getName();
 
-        File restored = new File(restoreDirectory + this.id + File.separator + fileName);
+        File restored = new File(getRestorePath(file));
         FileOutputStream fstream;
         restored.getParentFile().mkdirs();
 
@@ -444,8 +455,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
             fileDetails.addChunkReplication(chunkNo, peerId);
     }
 
-
-    // TODO: Do synchronized stuff
     public void addStoredChunk(Chunk chunk, int desiredReplication) {
         FileDetails file = this.storedFiles.computeIfAbsent(chunk.getFilehash(), v -> new FileDetails(chunk.getFilehash(),0, desiredReplication));
         this.disk_usage += chunk.getSize() / 1000; // update current disk space usage
