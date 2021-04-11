@@ -33,7 +33,7 @@ public class MessageThread extends Thread {
         if (!parsePacket())
             return;
 
-        System.out.println(message);
+        System.out.println("[" + peer.getId() + "] " + message);
 
         if (SdisUtils.isVersionOlder(peer.getVersion(), message.version))
             return;

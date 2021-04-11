@@ -25,14 +25,17 @@ public class DeleteProtocol implements Protocol {
             Collection<Chunk> chunks = peer.getStoredFiles().get(fileHash).getChunks();
 
             chunks.removeIf(chunk -> chunk.removeStorage(peer)); // remove chunk from fileHash List
+            Chunk.removeFileDir(peer, fileHash);
 
             if (!(SdisUtils.isInitialVersion(peer.getVersion()) && SdisUtils.isInitialVersion(message.version))) {
                 byte[] deletedMessage = Message.createMessage(peer.getVersion(), MessageType.DELETED, peer.getId(), message.fileId, message.chunkNo);
                 peer.getControlChannel().multicast(deletedMessage);
             }
 
-            if (chunks.isEmpty()) // remove file entry from files hashmap
+            if (chunks.isEmpty()) { // remove file entry from files hashmap
                 peer.removeStoredFile(fileHash);
+            }
+
             peer.setChangesFlag();
         }
     }

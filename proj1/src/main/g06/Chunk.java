@@ -76,9 +76,22 @@ public class Chunk implements Serializable {
 
     public boolean removeStorage(Peer peer) {
         File file = new File(peer.getStoragePath(filehash) + this.chunkNo);
-        if (!file.exists())
+        if (!file.exists()) {
             System.out.printf("Couldn't locate %s \n", file.getPath());
-        return file.delete();
+            return false;
+        }
+        boolean wasDeleted = file.delete();
+        if (wasDeleted)
+            peer.decreaseDiskUsage(this.size);
+        return wasDeleted;
+    }
+
+    public static boolean removeFileDir(Peer peer, String filehash) {
+        File file = new File(peer.getStoragePath(filehash));
+        if (file.exists() && file.isDirectory() && Objects.requireNonNull(file.list()).length == 0) {
+            return file.delete();
+        }
+        return false;
     }
 
     public void addPeersWithChunk(Set<Integer> peers) {

@@ -22,6 +22,6 @@ public class ChunkProtocol implements Protocol {
         if (fileDetails == null || (cm = fileDetails.getMonitor(message.chunkNo)) == null)
             return;
 
-        cm.markSolved(message.body);
+        cm.markSolved(message.body, message.version);
     }
 }

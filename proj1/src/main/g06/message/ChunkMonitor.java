@@ -5,6 +5,7 @@ import java.util.Random;
 public class ChunkMonitor {
 
     private boolean chunkSolved = false;
+    private String version = "";
     private byte[] data;
 
     public synchronized boolean await_send() {
@@ -48,6 +49,13 @@ public class ChunkMonitor {
         return this.chunkSolved;
     }
 
+    public synchronized void markSolved(byte[] data, String version) {
+        this.version = version;
+        this.data = data;
+        this.chunkSolved = true;
+        notifyAll();
+    }
+
     public synchronized void markSolved(byte[] data) {
         this.data = data;
         this.chunkSolved = true;
@@ -59,7 +67,7 @@ public class ChunkMonitor {
         notifyAll();
     }
 
-    public byte[] getData() {
-        return data;
-    }
+    public byte[] getData() { return data; }
+
+    public String getVersion() { return version; }
 }

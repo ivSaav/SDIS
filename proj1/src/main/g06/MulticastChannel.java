@@ -3,10 +3,7 @@ package main.g06;
 import main.g06.message.MessageThread;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
+import java.net.*;
 import java.util.concurrent.ThreadPoolExecutor;
 
 public class MulticastChannel extends Thread {
