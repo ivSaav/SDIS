@@ -7,6 +7,7 @@ import main.g06.message.Message;
 import main.g06.message.MessageType;
 
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class PutchunkHandler implements Handler {
 
@@ -20,66 +21,45 @@ public class PutchunkHandler implements Handler {
 
     @Override
     public void start() {
-        Chunk chunk = new Chunk(message.fileId, message.chunkNo, message.body.length);
-
         if (peer.isInitiator(message.fileId)) // for PUTCHUNK messages sent because of the REMOVED PROTOCOL (ignore chunk)
             return;
 
-        if (!peer.hasDiskSpace(chunk.getSize())) { //checking if there is enough disk space for this chunk
-            System.out.println("Not enough space for chunk " + chunk.getChunkNo());
+        if (!peer.hasDiskSpace(message.body.length)) { // checking if there is enough disk space for this chunk
+            System.out.println("Not enough space for chunk " + message.chunkNo);
             return;
         }
 
-        if (peer.hasStoredChunk(chunk)) {// already have a local copy
-            //mark as solved if the chunk has a monitor associated
+        boolean alreadyStored = peer.hasStoredChunk(message.fileId, message.chunkNo);
+
+        Chunk chunk = null;
+        if (alreadyStored) {
+            // mark as solved if the chunk has a monitor associated
             // a monitor is added when Receiving a REMOVED message and the desired replication degree isn't fulfilled
             peer.resolveRemovedChunk(message.fileId, message.chunkNo); // prevent PUTCHUNK message
         } else {
+            chunk = new Chunk(message.fileId, message.chunkNo, message.body.length);
             peer.addStoredChunk(chunk, message.replicationDegree);
-            chunk.store(peer, message.body);
         }
 
-        this.confirmStorage(chunk);
+        PutchunkHandler ph = this;
+        Chunk finalChunk = chunk;
+        peer.getScheduledPool().schedule(() -> {
+            if (!SdisUtils.isInitialVersion(peer.getVersion())
+                    && finalChunk != null
+                    && finalChunk.getPerceivedReplication() > peer.getFileReplication(finalChunk.getFilehash())) {
+                // Enhancement for v2.0
+                // Only store if replication degree was not hit yet
+                return;
+            }
+
+            byte[] storedMessage = Message.createMessage(message.version, MessageType.STORED, peer.getId(), finalChunk.getFilehash(), finalChunk.getChunkNo());
+            peer.getControlChannel().multicast(storedMessage);
+
+            if (!alreadyStored) {
+                finalChunk.store(peer, message.body);
+                peer.setChangesFlag();
+            }
+        }, new Random().nextInt(400), TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * Sends a confirmation message (STORED) to other peers
-     * v2.0 cancels message storage when the desired replication has already been reached
-     * @param chunk - chunk to be confirmed
-     */
-    public void confirmStorage(Chunk chunk) {
-        byte[] message = Message.createMessage(peer.getVersion(), MessageType.STORED, peer.getId(), chunk.getFilehash(), chunk.getChunkNo());
-
-        Random rand = new Random();
-        int time = rand.nextInt(400);
-        try {
-            Thread.sleep(time);
-        }
-        catch(InterruptedException e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
-
-        // Enhancement for v2.0
-        // aborting storage operation
-        if (!SdisUtils.isInitialVersion(peer.getVersion()) && chunk.getPerceivedReplication() > peer.getFileReplication(chunk.getFilehash())) {
-            this.undoStorage(chunk); //remove local storage
-        }
-        else {
-            peer.getControlChannel().multicast(message);
-            peer.setChangesFlag();
-        }
-    }
-
-    /**
-     * Removes unnecessary replications (v2.0)
-     * Informs other peers of this operation
-     * @param chunk - chunk to be removed from storage
-     */
-    private void undoStorage(Chunk chunk) {
-        if (!chunk.removeStorage(peer))
-            return; // couldn't remove file
-
-        this.peer.removeStoredChunk(chunk);
-    }
 }

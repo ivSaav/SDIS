@@ -32,6 +32,8 @@ public class Peer implements ClientPeerProtocol, Serializable {
     private final MulticastChannel restoreChannel;
     private final MulticastChannel controlChannel;
 
+    private final ScheduledThreadPoolExecutor scheduledPool;
+
     private boolean hasChanges; // if current state is saved or not
 
     public Peer(String version, int id, String MC, String MDB, String MDR) {
@@ -56,10 +58,14 @@ public class Peer implements ClientPeerProtocol, Serializable {
         String mdrAddr = vals[0];
         int mdrPort = Integer.parseInt(vals[1]);
 
-        // TODO: Use custom ThreadPoolExecutor to maximize performance
-        this.backupChannel = new MulticastChannel(this, mdbAddr, mdbPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
-        this.controlChannel = new MulticastChannel(this, mcAddr, mcPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
-        this.restoreChannel = new MulticastChannel(this, mdrAddr, mdrPort, (ThreadPoolExecutor) Executors.newFixedThreadPool(10));
+        scheduledPool = new ScheduledThreadPoolExecutor(5);
+
+        ThreadPoolExecutor sparseChannelsPool = new ThreadPoolExecutor(2, 10, 2500, TimeUnit.MILLISECONDS, new SynchronousQueue<>());
+        ThreadPoolExecutor controlChannelPool =  new ThreadPoolExecutor(10, 20, 5000, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+
+        this.backupChannel = new MulticastChannel(this, mdbAddr, mdbPort, sparseChannelsPool);
+        this.controlChannel = new MulticastChannel(this, mcAddr, mcPort, controlChannelPool);
+        this.restoreChannel = new MulticastChannel(this, mdrAddr, mdrPort, sparseChannelsPool);
 
         this.hasChanges = false;
     }
@@ -373,6 +379,10 @@ public class Peer implements ClientPeerProtocol, Serializable {
         return this;
     }
 
+    public ScheduledThreadPoolExecutor getScheduledPool() {
+        return scheduledPool;
+    }
+
     public String getVersion() { return version; }
 
     public MulticastChannel getBackupChannel() { return backupChannel; }
@@ -448,9 +458,9 @@ public class Peer implements ClientPeerProtocol, Serializable {
      * @param chunk - chunk beibg checked
      * @return boolean
      */
-    public boolean hasStoredChunk(Chunk chunk) {
-        FileDetails details = this.storedFiles.get(chunk.getFilehash());
-        return details != null && (details.getChunk(chunk.getChunkNo()) != null);
+    public boolean hasStoredChunk(String filehash, int chunkNo) {
+        FileDetails details = this.storedFiles.get(filehash);
+        return details != null && (details.getChunk(chunkNo) != null);
     }
 
     public boolean isInitiator(String fileHash) {
