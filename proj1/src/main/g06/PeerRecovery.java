@@ -19,7 +19,7 @@ public class PeerRecovery implements Runnable {
         try {
             if (!peer.hasChanges())
                 return;
-            System.out.println("Saving current state");
+            System.out.println("[#] Saving current state");
             File file = new File(peer.getPeerPath() + "backup.ser");
 
             if (!file.exists()) { //create missing directories
@@ -51,7 +51,7 @@ public class PeerRecovery implements Runnable {
         try {
             if (!file.exists()) // didn't find a backed up version
                 return;
-            System.out.println("Recovering last saved state");
+            System.out.println("[#] Recovering last saved state");
 
             // fetch backed up data
             FileInputStream fstream = new FileInputStream(file);

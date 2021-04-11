@@ -86,7 +86,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     @Override
     public String backup(String path, int repDegree) {
         if (this.filenameHashes.containsKey(path)) { // checking for a previous version of this file
-            System.out.println("Found previous version of: " + path);
+            System.out.println("[-] Found previous version of: " + path);
             this.delete(path); // removing previous version
         }
 
@@ -138,7 +138,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
             fd.clearMonitors();
 
             fstream.close();
-            System.out.println("Created " + num_chunks + " chunks");
+            System.out.println("[-] Created " + num_chunks + " chunks");
             this.hasChanges = true; // flag for peer backup
         }
         catch (IOException e) {
@@ -152,7 +152,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         int max_putchunk_tries = 5;
         int attempts = 0;
         while (attempts < max_putchunk_tries) {
-            System.out.printf("MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
+            System.out.printf("[-] MDB: chunkNo %d ; size %d\n", chunkNo, num_read);
             backupChannel.multicast(message);
             ChunkMonitor monitor = fd.addMonitor(chunkNo);
             if (monitor.await_receive((long) (Math.pow(2, attempts) * 1000)))
@@ -175,7 +175,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
             byte[] message = Message.createMessage(this.version, MessageType.DELETE, this.id, fileInfo.getHash());
             controlChannel.multicast(message);
-            System.out.printf("DELETE %s\n", file);
+            System.out.printf("[-] DELETE %s\n", file);
 
             //remove all data regarding this file
             this.removeInitiatedFile(file);
@@ -188,7 +188,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
     @Override
     public String reclaim(int new_capacity) {
-        System.out.println("RECLAIM max_size: " + new_capacity);
+        System.out.println("[-] RECLAIM max_size: " + new_capacity);
 
         this.maxSpace = new_capacity * 1000L;
 
@@ -245,7 +245,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
                 for (i = 0; i < 3; i++) {  // 3 retries per chunk
                     // send GETCHUNK message to other peers
                     controlChannel.multicast(message);
-                    System.out.printf("RESTORE %s %d\n", file, chunkNo);
+                    System.out.printf("[-] RESTORE %s %d\n", file, chunkNo);
 
                     if (!cm.await_receive())
                         continue;
@@ -353,7 +353,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
             System.out.println("Object already bound! Rebinding...");
             registry.rebind(service_ap, peer);
         }
-        System.out.println("Peer " + peer.id + " ready");
+        System.out.println("[#] Peer " + peer.id + " ready");
 
         peer.backupChannel.start();
         peer.controlChannel.start();
@@ -455,7 +455,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
 
     /**
      * Checking if peer has already backed up this chunk
-     * @param chunk - chunk beibg checked
      * @return boolean
      */
     public boolean hasStoredChunk(String filehash, int chunkNo) {

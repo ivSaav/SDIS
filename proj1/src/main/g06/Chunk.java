@@ -51,7 +51,7 @@ public class Chunk implements Serializable {
             this.addReplication(peer.getId());
         }
         catch (IOException e) {
-            System.out.println("Couldn't locate specified file " + file.getName());
+            System.out.println("[!] Couldn't locate specified file " + file.getName());
             e.printStackTrace();
             System.exit(1);
         }
@@ -66,7 +66,7 @@ public class Chunk implements Serializable {
             int num_read = fstream.read(body);
             fstream.close();
         } catch (FileNotFoundException e) {
-            System.out.println("Couldn't locate file (retrieve)");
+            System.out.println("[!] Couldn't locate file (retrieve)");
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
@@ -77,7 +77,7 @@ public class Chunk implements Serializable {
     public boolean removeStorage(Peer peer) {
         File file = new File(peer.getStoragePath(filehash) + this.chunkNo);
         if (!file.exists()) {
-            System.out.printf("Couldn't locate %s \n", file.getPath());
+            System.out.printf("[!] Couldn't locate %s \n", file.getPath());
             return false;
         }
         boolean wasDeleted = file.delete();

@@ -25,7 +25,7 @@ public class PutchunkHandler implements Handler {
             return;
 
         if (!peer.hasDiskSpace(message.body.length)) { // checking if there is enough disk space for this chunk
-            System.out.println("Not enough space for chunk " + message.chunkNo);
+            System.out.println("[!] Not enough space for chunk " + message.chunkNo);
             return;
         }
 

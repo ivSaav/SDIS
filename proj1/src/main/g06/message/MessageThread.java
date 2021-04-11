@@ -46,7 +46,7 @@ public class MessageThread extends Thread {
             handler.start();
         }
         catch (Exception e) {
-            System.out.println("Encountered an error in MessageThread of type " + message.type);
+            System.out.println("[!] Encountered an error in MessageThread of type " + message.type);
             e.printStackTrace();
         }
     }
