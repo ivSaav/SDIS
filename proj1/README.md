@@ -1,4 +1,5 @@
 # COMPILATION
+For compiling and executing this project, please use JDK 15.
 From the sources root (src) run:
 ```shell
 ../scripts/compile.sh
