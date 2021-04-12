@@ -78,6 +78,7 @@ rootscripts/test.sh ap RECLAIM 0
 
 # STORAGE
 
+```
 PeerID/
 ├─ stored/
 │  ├─ fileHash/
@@ -86,6 +87,7 @@ PeerID/
 ├─ restored/
 │  ├─ restoredFile
 ├─ serializedBackup
+```
 
 Each peer's information is stored in a folder with its ID in src/build/peers/peerID.
 Inside each peer's folder are the stored, restored directories and the peer's serialized backup (for recovery on crash).
