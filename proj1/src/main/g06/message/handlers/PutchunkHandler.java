@@ -59,6 +59,14 @@ public class PutchunkHandler implements Handler {
             if (!alreadyStored) {
                 finalChunk.store(peer, message.body);
                 peer.setChangesFlag();
+
+                // Edge case for version 2.0
+                // If a drops bellow the desired replication degree a PUTCHUNK message is sent from a non initiator peer
+                // If the peer of sends a chunk is a non initiator peer then that peer is also storing that chunk
+                // Therefore a new replication needs to be added
+                if (peer.isReclaimedChunk(message.fileId, message.chunkNo)) {
+                    peer.addPerceivedReplication(message.senderId, message.fileId, message.chunkNo);
+                }
             }
         }, new Random().nextInt(400), TimeUnit.MILLISECONDS);
     }

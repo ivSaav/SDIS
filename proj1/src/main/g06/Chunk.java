@@ -25,12 +25,17 @@ public class Chunk implements Serializable {
     public int getSize() { return this.size; }
 
 
-    public synchronized int getPerceivedReplication() {
+    public int getPerceivedReplication() {
         return this.replications.size();
+    }
+
+    public Set<Integer> getReplications() {
+        return replications;
     }
 
     public synchronized void addReplication(int peerId) {
         this.replications.add(peerId);
+//        System.out.println(this.replications);
     }
 
     public synchronized void removeReplication(int peerId) {

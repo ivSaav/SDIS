@@ -19,6 +19,9 @@ public class RemovedHandler implements Handler {
     @Override
     public void start() {
        this.updateLocalChunkReplication(message.senderId, message.fileId, message.chunkNo);
+        // track reclaimed chunk
+        // solves perceived replication problem after a PUTCHUNK message is received from a non initiator peer
+       this.peer.addReclaimedChunk(message.fileId, message.chunkNo);
        peer.setChangesFlag();
     }
 

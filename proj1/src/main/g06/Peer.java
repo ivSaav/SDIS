@@ -27,6 +27,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
     private Map<String, FileDetails> initiatedFiles; // filehash --> FileDetail
     private Map<String, FileDetails> storedFiles; // filehash --> Chunks
     private Map<Integer, Set<String>> undeletedFiles; // Peer id --> Undeleted Chunks
+    private Map<String, Set<Integer>> reclaimedChunks; // fileHash --> chunkNos
 
     private final MulticastChannel backupChannel;
     private final MulticastChannel restoreChannel;
@@ -45,6 +46,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.initiatedFiles = new ConcurrentHashMap<>();
         this.storedFiles = new ConcurrentHashMap<>();
         this.undeletedFiles = new ConcurrentHashMap<>();
+        this.reclaimedChunks = new ConcurrentHashMap<>();
 
         String[] vals = MC.split(":"); // MC
         String mcAddr = vals[0];
@@ -87,6 +89,9 @@ public class Peer implements ClientPeerProtocol, Serializable {
     public String backup(String path, int repDegree) {
         if (this.filenameHashes.containsKey(path)) { // checking for a previous version of this file
             System.out.println("Found previous version of: " + path);
+            // removing all reclaimed chunks
+            // because file is being deleted before reupload
+            this.reclaimedChunks.remove(filenameHashes.get(path));
             this.delete(path); // removing previous version
         }
 
@@ -183,7 +188,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
             this.hasChanges = true; // flag for peer backup
             return "success";
         }
-        return "";
+        return "failure";
     }
 
     @Override
@@ -210,7 +215,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
                         return "success";
                 }
         }
-        return "success";
+        return "failure";
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -408,6 +413,20 @@ public class Peer implements ClientPeerProtocol, Serializable {
         return this.storedFiles.get(fileHash);
     }
 
+    public void addReclaimedChunk(String fileHash, int chunkNo) {
+        this.reclaimedChunks.computeIfAbsent(fileHash, k -> new HashSet<>());
+        this.reclaimedChunks.get(fileHash).add(chunkNo);
+    }
+
+    public Map<String, Set<Integer>> getReclaimedChunks() {
+        return reclaimedChunks;
+    }
+
+    public boolean isReclaimedChunk(String fileHash, int chunkNo) {
+        Set<Integer> reclaimed = this.reclaimedChunks.get(fileHash);
+        return reclaimed != null && reclaimed.contains(chunkNo);
+    }
+
     /**
      * Marks a chunk as resolved when the desired replication degree has been reached
      * Used in the backup subprotocol
@@ -513,6 +532,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.initiatedFiles = previous.initiatedFiles;
         this.filenameHashes = previous.filenameHashes;
         this.undeletedFiles = previous.undeletedFiles;
+        this.reclaimedChunks = previous.reclaimedChunks;
     }
 
     public void removeInitiatedFile(String filename) {
@@ -578,6 +598,7 @@ public class Peer implements ClientPeerProtocol, Serializable {
         out.writeObject(this.initiatedFiles);
         out.writeObject(this.storedFiles);
         out.writeObject(this.undeletedFiles);
+        out.writeObject(this.reclaimedChunks);
     }
 
     @Serial
@@ -589,5 +610,6 @@ public class Peer implements ClientPeerProtocol, Serializable {
         this.initiatedFiles = (ConcurrentHashMap<String, FileDetails>) in.readObject();
         this.storedFiles = (ConcurrentHashMap<String, FileDetails>) in.readObject();
         this.undeletedFiles = (ConcurrentHashMap<Integer, Set<String>>) in.readObject();
+        this.reclaimedChunks = (ConcurrentHashMap<String, Set<Integer>>) in.readObject();
     }
 }

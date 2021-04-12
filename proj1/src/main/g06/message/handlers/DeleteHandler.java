@@ -22,6 +22,11 @@ public class DeleteHandler implements Handler {
     public void start() {
         String fileHash = message.fileId;
         if (peer.getStoredFiles().containsKey(fileHash)){
+
+            // remove reclaimed chunks of this file as this is a message sent by the initiator peer
+            // and the initiator peer doesn't store copies of it's initiated files
+            peer.getReclaimedChunks().remove(fileHash);
+
             Collection<Chunk> chunks = peer.getStoredFiles().get(fileHash).getChunks();
 
             chunks.removeIf(chunk -> chunk.removeStorage(peer)); // remove chunk from fileHash List
