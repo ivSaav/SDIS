@@ -6,6 +6,7 @@ From the sources root (src) run:
 EXECUTION
 All commands should be run in compiled sources directory (src/build).
 Make sure the rmiregistry is running in the compiled sources directory as well.
+If the rmiregistry service is not available, the peers will still run but won't accept testapp commands.
 
 To start a new peer run:
 	../../scripts/peer.sh <version> <peer_id> <svc_access_point> <mc_addr> <mc_port> <mdb_addr> <mdb_port> <mdr_addr> <mdr_port>

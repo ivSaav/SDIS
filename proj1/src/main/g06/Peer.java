@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.rmi.AlreadyBoundException;
+import java.rmi.ConnectException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -356,8 +357,10 @@ public class Peer implements ClientPeerProtocol, Serializable {
             //Bind the remote object's stub in the registry
             registry.bind(service_ap, stub); //register peer object with the name in args[0]
         } catch (AlreadyBoundException e) {
-            System.out.println("Object already bound! Rebinding...");
+            System.out.println("[R] Object already bound! Rebinding...");
             registry.rebind(service_ap, peer);
+        } catch (ConnectException e) {
+            System.out.println("[R] Could not connect to RMI!");
         }
         System.out.println("[#] Peer " + peer.id + " ready");
 
